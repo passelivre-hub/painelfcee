@@ -2,7 +2,7 @@ import csv
 import os
 from flask import Flask, render_template, request, redirect, send_from_directory, session, url_for
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='.', static_folder='static', static_url_path='/static')
 app.secret_key = os.environ.get("SECRET_KEY", "chave-secreta-trocar")
 
 # 🔐 Usuário e senha definidos via variáveis de ambiente
@@ -288,7 +288,8 @@ def admin():
                     idx = int(parts[2])
                     if municipio in instituicoes and idx < len(instituicoes[municipio]):
                         instituicoes[municipio][idx]["nome"] = request.form[key].strip()
-                        instituicoes[municipio][idx]["regiao"] = request.form.get(f"regiao_{municipio}_{idx}", "").strip()
+                        regiao_informada = request.form.get(f"regiao_{municipio}_{idx}", "").strip()
+                        instituicoes[municipio][idx]["regiao"] = regiao_informada or municipio_regiao.get(municipio, "")
                         instituicoes[municipio][idx]["tipo"] = normalize_tipo(request.form.get(f"tipo_{municipio}_{idx}", ""))
                         instituicoes[municipio][idx]["endereco"] = request.form.get(f"endereco_{municipio}_{idx}", "").strip()
                         instituicoes[municipio][idx]["telefone"] = request.form.get(f"telefone_{municipio}_{idx}", "").strip()
@@ -300,9 +301,10 @@ def admin():
             if request.form.get("add"):
                 municipio = request.form.get("municipio", "").strip()
                 if municipio:
+                    regiao_informada = request.form.get("regiao", "").strip()
                     inst = {
                         "nome": request.form.get("nome", "").strip(),
-                        "regiao": request.form.get("regiao", "").strip(),
+                        "regiao": regiao_informada or municipio_regiao.get(municipio, ""),
                         "tipo": normalize_tipo(request.form.get("tipo", "")),
                         "endereco": request.form.get("endereco", "").strip(),
                         "telefone": request.form.get("telefone", "").strip(),

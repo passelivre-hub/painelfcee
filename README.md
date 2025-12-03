@@ -8,13 +8,15 @@ A página agora é 100% estática e lê os dados diretamente dos arquivos presen
 
 - `dados.csv`: instituições por município.
 - `demografia.csv`: distribuição por faixa etária e tipo de deficiência (colunas `faixa_etaria`, `tipo_deficiencia` e `quantidade`).
-- `sc_municipios.geojson`: geometria dos municípios de SC.
+- `sc_municipios.geojson`: geometria dos municípios de SC (opcional; se não existir, o painel tenta baixar automaticamente do IBGE).
 
 Para publicar e abrir o painel estático:
 
 1. Faça push para o branch principal (os arquivos `index.html`, `static/js/app.js` e os dados já estão na raiz).
 2. Ative o GitHub Pages nas configurações do repositório, escolhendo a **raiz (`/`)** como fonte (não use `/docs`).
 3. Aguarde a publicação e acesse `https://<usuario>.github.io/<repositorio>/` — o `index.html` é carregado direto da raiz e lê os arquivos `dados.csv`, `demografia.csv` e `sc_municipios.geojson` automaticamente.
+
+> 📌 As logos do Governo de SC e da FCEE devem ser salvas em `static/img/govsc.jpg` e `static/img/fcee.jpg`. Os espaços já estão preparados; basta substituir os placeholders pelos arquivos oficiais.
 
 Se você atualizar os CSV ou o GeoJSON, basta fazer novo push; o painel no Pages recarrega com os números mais recentes assim que a publicação terminar.
 
