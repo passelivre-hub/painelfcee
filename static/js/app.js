@@ -1,11 +1,22 @@
 const mainGreen = '#1B5E20';
 const cipteaBlue = '#003c6c';
 const cipfPurple = '#6a1b9a';
+const barFillOpacity = 0.22;
+
 const faixaOrder = ['0-12', '13-17', '18-29', '30-44', '45-59', '18-59', '60+', '0-17'];
 const faixasFixas = ['0-12', '13-17', '18-59', '60+'];
 const defaultFaixas = Object.fromEntries(faixaOrder.map((faixa) => [faixa, 0]));
 const regioesPadrao = ['Grande Florianópolis', 'Sul', 'Norte', 'Vale do Itajaí', 'Serra', 'Oeste'];
 const tiposFixos = ['CIPTEA', 'CIPF', 'Passe Livre'];
+
+function withOpacity(hex, alpha) {
+  const sanitized = hex.replace('#', '');
+  const bigint = parseInt(sanitized, 16);
+  const r = (bigint >> 16) & 255;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
 
 function toNonNegativeInt(value, fallback = 0) {
   const parsed = parseInt(String(value ?? '').trim(), 10);
@@ -33,7 +44,9 @@ function buildDados(rows) {
     const instNome = safeStr(row, 'nome');
     if (!instNome) return;
 
-    const tipoNormalizado = safeStr(row, 'tipo').toLowerCase() === 'ambos' ? 'Todos' : safeStr(row, 'tipo');
+    const tipoRaw = safeStr(row, 'tipo');
+    const tipoNormalizado = tipoRaw.toLowerCase() === 'ambos' ? 'Todos' : tipoRaw;
+
     const inst = {
       nome: instNome,
       regiao: safeStr(row, 'regiao'),
@@ -84,7 +97,6 @@ function buildDemografia(rows) {
     const quantidade = normalizeNumericField(row.quantidade);
 
     if (!faixa || !tipo) return;
-
     if (!tiposFixos.includes(tipo)) return;
 
     faixasSet.add(faixa);
@@ -182,8 +194,8 @@ function renderChart(ctxId, labels, data, title, type = 'bar', chartOptions = {}
           label: title,
           data,
           borderColor: mainGreen,
-          backgroundColor: 'rgba(27, 94, 32, 0.1)',
-          borderWidth: 3,
+          backgroundColor: withOpacity(mainGreen, barFillOpacity),
+          borderWidth: 2,
           tension: type === 'line' ? 0.3 : 0,
           fill: type === 'line',
         },
@@ -191,8 +203,8 @@ function renderChart(ctxId, labels, data, title, type = 'bar', chartOptions = {}
 
   datasets.forEach((dataset) => {
     if (!dataset.borderColor) dataset.borderColor = mainGreen;
-    if (!dataset.backgroundColor) dataset.backgroundColor = 'rgba(161, 200, 77, 0.15)';
-    if (dataset.borderWidth === undefined) dataset.borderWidth = 3;
+    if (!dataset.backgroundColor) dataset.backgroundColor = withOpacity(mainGreen, barFillOpacity);
+    if (dataset.borderWidth === undefined) dataset.borderWidth = 2;
     if (dataset.tension === undefined) dataset.tension = type === 'line' ? 0.3 : 0;
     if (dataset.fill === undefined) dataset.fill = type === 'line';
   });
@@ -227,16 +239,19 @@ function renderPainel(demografia, instituicoesResumo, municipiosResumo) {
     CIPF: cipfPurple,
     'Passe Livre': mainGreen,
   };
-  const datasets = demografiaData.tipos.map((tipo, index) => ({
+
+  const datasets = demografiaData.tipos.map((tipo) => ({
     label: tipo,
     data: faixaLabels.map((faixa) => demografiaData?.porTipo?.[tipo]?.[faixa] || 0),
-    backgroundColor: tipoColors[tipo] || '#0EA5E9',
+    backgroundColor: withOpacity(tipoColors[tipo] || '#0EA5E9', barFillOpacity),
     borderColor: tipoColors[tipo] || '#0EA5E9',
+    borderWidth: 2,
   }));
 
   renderChart('chartFaixa', faixaLabels, datasets, 'Por faixa etária', 'bar', {
     plugins: { legend: { display: true, position: 'top' } },
-    scales: { x: { stacked: true }, y: { beginAtZero: true, stacked: true } },
+    indexAxis: 'y', // barras horizontais
+    scales: { x: { stacked: true, beginAtZero: true }, y: { stacked: true } },
     layout: { padding: { right: 30, top: 10, left: 4, bottom: 6 } },
   });
 
@@ -246,6 +261,7 @@ function renderPainel(demografia, instituicoesResumo, municipiosResumo) {
   const totalTipos = tipoValores.reduce((a, b) => a + b, 0);
   const totalTiposEl = document.getElementById('totalTipos');
   if (totalTiposEl) totalTiposEl.innerText = `${totalTipos} emissões`;
+
   renderChart(
     'chartTipos',
     tipoLabels,
@@ -253,28 +269,51 @@ function renderPainel(demografia, instituicoesResumo, municipiosResumo) {
       {
         label: 'Distribuição por tipo',
         data: tipoValores,
-        backgroundColor: [cipteaBlue, mainGreen, cipfPurple],
+        backgroundColor: [
+          withOpacity(cipteaBlue, barFillOpacity),
+          withOpacity(mainGreen, barFillOpacity),
+          withOpacity(cipfPurple, barFillOpacity),
+        ],
         borderColor: [cipteaBlue, mainGreen, cipfPurple],
+        borderWidth: 2,
       },
     ],
     'Por tipo de carteira',
     'bar',
-    { indexAxis: 'y', plugins: { legend: { display: false } } },
+    {
+      indexAxis: 'y', // barras horizontais
+      plugins: { legend: { display: false } },
+      scales: { x: { beginAtZero: true } },
+    },
   );
 
   const regioes = instituicoesResumo?.regioes || {};
-  const regiaoLabels = Array.from(
-    new Set([...regioesPadrao, ...Object.keys(regioes || {})]),
-  );
+  const regiaoLabels = Array.from(new Set([...regioesPadrao, ...Object.keys(regioes || {})]));
   const regiaoValores = regiaoLabels.map((r) => regioes[r] || 0);
   const totalRegiao = regiaoValores.reduce((a, b) => a + b, 0);
   const totalRegiaoEl = document.getElementById('totalRegiao');
   if (totalRegiaoEl) totalRegiaoEl.innerText = `${totalRegiao} carteiras`;
-  renderChart('chartRegiao', regiaoLabels, regiaoValores, 'Carteiras por região', 'bar', {
-    indexAxis: 'y',
-    scales: { x: { beginAtZero: true } },
-    layout: { padding: { right: 50, top: 10, left: 4, bottom: 6 } },
-  });
+
+  renderChart(
+    'chartRegiao',
+    regiaoLabels,
+    [
+      {
+        label: 'Carteiras por região',
+        data: regiaoValores,
+        backgroundColor: withOpacity(mainGreen, barFillOpacity),
+        borderColor: mainGreen,
+        borderWidth: 2,
+      },
+    ],
+    'Carteiras por região',
+    'bar',
+    {
+      indexAxis: 'y', // barras horizontais
+      scales: { x: { beginAtZero: true } },
+      layout: { padding: { right: 50, top: 10, left: 4, bottom: 6 } },
+    },
+  );
 
   if (municipiosResumo) {
     const totalInst = Object.values(municipiosResumo).reduce((acc, item) => acc + (item?.instituicoes || 0), 0);
@@ -290,42 +329,6 @@ function renderPainel(demografia, instituicoesResumo, municipiosResumo) {
     if (munLabel) munLabel.innerText = `${municipiosAtivos} municípios`;
     const totalCarteirasEl = document.getElementById('totalCarteiras');
     if (totalCarteirasEl) totalCarteirasEl.innerText = `${totalCarteiras} carteiras`;
-
-    const listaMunicipios = Object.entries(municipiosResumo).map(([municipio, valores]) => ({
-      municipio,
-      total: (valores.ciptea || 0) + (valores.cipf || 0) + (valores.passe_livre || 0),
-      ...valores,
-    }));
-
-    const tbody = document.getElementById('municipioTableBody');
-    if (tbody) {
-      tbody.innerHTML = listaMunicipios
-        .sort((a, b) => b.total - a.total)
-        .map(
-          (m) => `
-            <tr>
-              <td>${m.municipio}</td>
-              <td>${m.regiao || '-'}</td>
-              <td class="center">${m.instituicoes || 0}</td>
-              <td class="center">${m.ciptea || 0}</td>
-              <td class="center">${m.cipf || 0}</td>
-              <td class="center">${m.passe_livre || 0}</td>
-              <td class="center">${m.total}</td>
-            </tr>
-          `,
-        )
-        .join('');
-
-      const filtro = document.getElementById('municipioFilter');
-      if (filtro) {
-        filtro.addEventListener('input', () => {
-          const termo = filtro.value.toLowerCase();
-          tbody.querySelectorAll('tr').forEach((tr) => {
-            tr.style.display = tr.textContent.toLowerCase().includes(termo) ? '' : 'none';
-          });
-        });
-      }
-    }
   }
 }
 
@@ -361,11 +364,6 @@ function buildPopupHtml(nome, status, municipiosInstituicoes) {
 }
 
 function resolveAssetPath(fileName) {
-  // Resolve sempre a partir da pasta do HTML atual, mesmo quando o endereço
-  // termina sem barra (ex.: https://example.com/painel) ou está publicado em
-  // um subcaminho do GitHub Pages. Ao remover o último segmento do pathname e
-  // reconstruir a URL, garantimos que os CSV/GeoJSON sejam buscados na mesma
-  // pasta do index.html em vez de na raiz do domínio.
   const basePath = window.location.pathname.replace(/[^/]*$/, '');
   return `${window.location.origin}${basePath}${fileName}`;
 }
@@ -489,7 +487,7 @@ async function init() {
       notice.style.zIndex = '1200';
       notice.innerHTML = `
         <strong>Erro ao carregar dados.</strong><br>
-        Confirme que os arquivos CSV e GeoJSON estão publicados na mesma pasta do <code>index.html</code> (GitHub Pages: fonte "Root").
+        Confirme que os arquivos CSV e GeoJSON estão publicados na mesma pasta do <code>index.html</code>.
       `;
       document.body.appendChild(notice);
     }
