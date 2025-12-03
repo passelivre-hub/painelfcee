@@ -67,64 +67,52 @@
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
     }
 
-    .legend {
-      position: absolute;
-      top: 90px;
-      left: 12px;
-      background: white;
-      padding: 10px 12px;
-      border-radius: 10px;
-      box-shadow: var(--shadow);
-      z-index: 1000;
-      border: 1px solid #e2e8f0;
-      font-size: 13px;
-    }
-    .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-    .legend-color { width: 16px; height: 16px; border-radius: 4px; border: 1px solid #0f172a22; }
-
     .demographic-panel {
       position: absolute;
-      bottom: 12px;
-      left: 50%;
-      transform: translateX(-50%);
+      top: 96px;
+      right: 12px;
       background: rgba(255,255,255,0.96);
-      padding: 16px;
+      padding: 14px;
       box-shadow: var(--shadow);
       border-radius: 14px;
       z-index: 1000;
-      width: 95%;
-      max-width: 1250px;
+      width: min(920px, 78vw);
       backdrop-filter: blur(4px);
       border: 1px solid #e2e8f0;
-
-      /* limite de altura + scroll interno */
-      max-height: 55vh;
+      max-height: calc(100vh - 120px);
       overflow-y: auto;
+    }
+
+    .panel-columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      align-items: start;
     }
 
     .summary-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 12px;
-      margin-bottom: 12px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 10px;
     }
 
     .metric-card {
       background: #fff;
       border: 1px solid #e2e8f0;
       border-radius: 10px;
-      padding: 10px 12px;
+      padding: 8px 10px;
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
     }
     .metric-card h4 {
       margin: 0;
-      font-size: 13px;
+      font-size: 12px;
       color: var(--gov-blue);
       text-transform: uppercase;
       letter-spacing: 0.02em;
     }
     .metric-card .metric {
-      font-size: 22px;
+      font-size: 18px;
       font-weight: 800;
       margin-top: 4px;
       color: var(--gov-green);
@@ -132,8 +120,8 @@
 
     .demographic-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 12px;
+      grid-template-columns: 1fr;
+      gap: 10px;
       align-items: stretch;
     }
 
@@ -156,44 +144,6 @@
       margin-bottom: 6px;
     }
 
-    /* estilos da tabela ficaram aqui, mas o bloco foi removido do HTML;
-       não atrapalham em nada e você pode apagar depois se quiser */
-    .table-card {
-      margin-top: 12px;
-      background: #fff;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      padding: 12px;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
-      max-height: 260px;
-      overflow: auto;
-    }
-
-    .table-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-bottom: 8px;
-    }
-    .table-header h4 { margin: 0; color: var(--gov-blue); }
-    .table-header input {
-      padding: 8px 10px;
-      border-radius: 8px;
-      border: 1px solid #cbd5e1;
-      min-width: 220px;
-    }
-
-    table { width: 100%; border-collapse: collapse; }
-    th, td {
-      border: 1px solid #e2e8f0;
-      padding: 8px;
-      font-size: 13px;
-    }
-    th { background: #f1f5f9; text-align: left; }
-    td.center { text-align: center; }
-
     canvas { background: white; border-radius: 6px; }
 
     @media (max-width: 760px) {
@@ -205,20 +155,18 @@
       }
       .brand img { height: 40px; }
       #searchBox { width: 100%; }
-      .legend {
-        left: 50%;
-        transform: translateX(-50%);
-        top: 76px;
-        width: calc(100% - 40px);
-      }
       .demographic-panel {
-        bottom: 6px;
-        padding: 12px;
-        max-height: 60vh;
+        position: static;
+        width: calc(100% - 24px);
+        max-width: none;
+        margin: 10px auto 0 auto;
+        transform: none;
+        top: auto;
+        right: auto;
+        max-height: none;
       }
-      .table-card {
-        max-height: 220px;
-      }
+      .panel-columns { grid-template-columns: 1fr; }
+      .summary-grid { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
     }
   </style>
 </head>
@@ -242,56 +190,42 @@
     </div>
   </div>
 
-  <div class="legend">
-    <div class="legend-item">
-      <div class="legend-color" style="background: var(--gov-green);"></div>
-      Possui instituição credenciada
-    </div>
-    <div class="legend-item">
-      <div class="legend-color" style="background: #e5e7eb;"></div>
-      Sem credenciamento
-    </div>
-    <div style="font-size:11px; color:#475569; margin-top:4px;">
-      Envie os arquivos de logo como <b>static/img/govsc.jpg</b> e <b>static/img/fcee.jpg</b>.
-    </div>
-  </div>
-
   <div class="demographic-panel">
-    <div class="summary-grid">
-      <div class="metric-card">
-        <h4>Total de carteiras</h4>
-        <div class="metric" id="totalCarteiras">-</div>
-      </div>
-      <div class="metric-card">
-        <h4>Instituições credenciadas</h4>
-        <div class="metric" id="totalInstituicoes">-</div>
-      </div>
-      <div class="metric-card">
-        <h4>Municípios atendidos</h4>
-        <div class="metric" id="totalMunicipios">-</div>
-      </div>
-    </div>
+    <div class="panel-columns">
+      <div class="panel-column left">
+        <div class="summary-grid">
+          <div class="metric-card">
+            <h4>Total de carteiras</h4>
+            <div class="metric" id="totalCarteiras">-</div>
+          </div>
+          <div class="metric-card">
+            <h4>Instituições credenciadas</h4>
+            <div class="metric" id="totalInstituicoes">-</div>
+          </div>
+          <div class="metric-card">
+            <h4>Municípios atendidos</h4>
+            <div class="metric" id="totalMunicipios">-</div>
+          </div>
+        </div>
 
-    <div class="demographic-grid">
-      <div class="card">
-        <h4>Carteiras por faixa etária</h4>
-        <div class="total" id="totalFaixa">-</div>
-        <canvas id="chartFaixa" height="120"></canvas>
+        <div class="card">
+          <h4>Carteiras por região</h4>
+          <div class="total" id="totalRegiao">-</div>
+          <canvas id="chartRegiao" height="140"></canvas>
+        </div>
       </div>
-      <div class="card">
-        <h4>Quantidade por tipo de carteira</h4>
-        <div class="total" id="totalTipos">-</div>
-        <canvas id="chartTipos" height="120"></canvas>
-      </div>
-      <div class="card">
-        <h4>Carteiras por região</h4>
-        <div class="total" id="totalRegiao">-</div>
-        <canvas id="chartRegiao" height="120"></canvas>
-      </div>
-      <div class="card">
-        <h4>Top 10 municípios por emissões</h4>
-        <div class="total">Distribuição por tipo</div>
-        <canvas id="chartTopMunicipios" height="120"></canvas>
+
+      <div class="panel-column right">
+        <div class="card">
+          <h4>Carteiras por faixa etária</h4>
+          <div class="total" id="totalFaixa">-</div>
+          <canvas id="chartFaixa" height="160"></canvas>
+        </div>
+        <div class="card">
+          <h4>Quantidade por tipo de carteira</h4>
+          <div class="total" id="totalTipos">-</div>
+          <canvas id="chartTipos" height="140"></canvas>
+        </div>
       </div>
     </div>
   </div>

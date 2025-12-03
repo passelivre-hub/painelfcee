@@ -1,7 +1,21 @@
 const mainGreen = '#1B5E20';
-const accentRed = '#BF1E2E';
+const cipteaBlue = '#003c6c';
+const cipfPurple = '#6a1b9a';
+const barFillOpacity = 0.22;
 const faixaOrder = ['0-12', '13-17', '18-29', '30-44', '45-59', '18-59', '60+', '0-17'];
+const faixasFixas = ['0-12', '13-17', '18-59', '60+'];
 const defaultFaixas = Object.fromEntries(faixaOrder.map((faixa) => [faixa, 0]));
+const regioesPadrao = ['Grande Florianópolis', 'Sul', 'Norte', 'Vale do Itajaí', 'Serra', 'Oeste'];
+const tiposFixos = ['CIPTEA', 'CIPF', 'Passe Livre'];
+
+function withOpacity(hex, alpha) {
+  const sanitized = hex.replace('#', '');
+  const bigint = parseInt(sanitized, 16);
+  const r = (bigint >> 16) & 255;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
 
 function toNonNegativeInt(value, fallback = 0) {
   const parsed = parseInt(String(value ?? '').trim(), 10);
@@ -68,10 +82,11 @@ function buildDados(rows) {
 }
 
 function buildDemografia(rows) {
-  const faixasSet = new Set(Object.keys(defaultFaixas));
-  const tiposSet = new Set();
-  const porTipo = {};
-  const totalPorFaixa = { ...defaultFaixas };
+  const faixasSet = new Set(faixasFixas);
+  const porTipo = Object.fromEntries(
+    tiposFixos.map((tipo) => [tipo, Object.fromEntries(faixasFixas.map((faixa) => [faixa, 0]))]),
+  );
+  const totalPorFaixa = Object.fromEntries(faixasFixas.map((faixa) => [faixa, 0]));
 
   rows.forEach((row) => {
     const faixa = safeStr(row, 'faixa_etaria') || safeStr(row, 'faixa');
@@ -80,10 +95,11 @@ function buildDemografia(rows) {
 
     if (!faixa || !tipo) return;
 
-    faixasSet.add(faixa);
-    tiposSet.add(tipo);
+    if (!tiposFixos.includes(tipo)) return;
 
-    if (!porTipo[tipo]) porTipo[tipo] = { ...defaultFaixas };
+    faixasSet.add(faixa);
+
+    if (!porTipo[tipo]) porTipo[tipo] = Object.fromEntries(faixasFixas.map((fa) => [fa, 0]));
     porTipo[tipo][faixa] = (porTipo[tipo][faixa] || 0) + quantidade;
     totalPorFaixa[faixa] = (totalPorFaixa[faixa] || 0) + quantidade;
   });
@@ -95,7 +111,7 @@ function buildDemografia(rows) {
 
   return {
     faixaLabels,
-    tipos: [...tiposSet].sort(),
+    tipos: tiposFixos,
     porTipo,
     totalPorFaixa,
   };
@@ -162,45 +178,6 @@ function resumirPorMunicipio(instituicoes) {
   return resumo;
 }
 
-function registerValueLabelsPlugin() {
-  const valueLabelsPlugin = {
-    id: 'valueLabels',
-    afterDatasetsDraw(chart) {
-      const { ctx, data, config } = chart;
-      if (!data?.datasets?.length) return;
-
-      ctx.save();
-      ctx.fillStyle = '#0f172a';
-      ctx.font = 'bold 12px "Segoe UI", Arial, sans-serif';
-
-      data.datasets.forEach((dataset, datasetIndex) => {
-        const meta = chart.getDatasetMeta(datasetIndex);
-        if (!meta) return;
-
-        meta.data.forEach((element, index) => {
-          const value = dataset.data[index];
-          if (value === null || value === undefined) return;
-
-          const isHorizontal = config.options.indexAxis === 'y';
-          if (isHorizontal) {
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(value, element.x + 12, element.y);
-          } else {
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
-            ctx.fillText(value, element.x, element.y - 8);
-          }
-        });
-      });
-
-      ctx.restore();
-    },
-  };
-
-  Chart.register(valueLabelsPlugin);
-}
-
 function renderChart(ctxId, labels, data, title, type = 'bar', chartOptions = {}) {
   const ctx = document.getElementById(ctxId);
   if (!ctx) return null;
@@ -215,8 +192,8 @@ function renderChart(ctxId, labels, data, title, type = 'bar', chartOptions = {}
           label: title,
           data,
           borderColor: mainGreen,
-          backgroundColor: 'rgba(27, 94, 32, 0.1)',
-          borderWidth: 3,
+          backgroundColor: withOpacity(mainGreen, barFillOpacity),
+          borderWidth: 2,
           tension: type === 'line' ? 0.3 : 0,
           fill: type === 'line',
         },
@@ -224,10 +201,11 @@ function renderChart(ctxId, labels, data, title, type = 'bar', chartOptions = {}
 
   datasets.forEach((dataset) => {
     if (!dataset.borderColor) dataset.borderColor = mainGreen;
-    if (!dataset.backgroundColor) dataset.backgroundColor = 'rgba(161, 200, 77, 0.15)';
-    if (dataset.borderWidth === undefined) dataset.borderWidth = 3;
+    if (!dataset.backgroundColor) dataset.backgroundColor = withOpacity(mainGreen, barFillOpacity);
+    if (dataset.borderWidth === undefined) dataset.borderWidth = 2;
     if (dataset.tension === undefined) dataset.tension = type === 'line' ? 0.3 : 0;
     if (dataset.fill === undefined) dataset.fill = type === 'line';
+    if (dataset.borderRadius === undefined) dataset.borderRadius = 6;
   });
 
   return new Chart(ctx, {
@@ -248,8 +226,6 @@ function renderChart(ctxId, labels, data, title, type = 'bar', chartOptions = {}
 }
 
 function renderPainel(demografia, instituicoesResumo, municipiosResumo) {
-  registerValueLabelsPlugin();
-
   const demografiaData = demografia || { faixaLabels: [], tipos: [], porTipo: {}, totalPorFaixa: {} };
   const faixaLabels = demografiaData.faixaLabels;
   const faixaValores = faixaLabels.map((faixa) => Number(demografiaData.totalPorFaixa[faixa]) || 0);
@@ -257,39 +233,81 @@ function renderPainel(demografia, instituicoesResumo, municipiosResumo) {
   const totalFaixaEl = document.getElementById('totalFaixa');
   if (totalFaixaEl) totalFaixaEl.innerText = `${totalFaixa} carteiras`;
 
-  const tipoColors = ['#1B5E20', '#0EA5E9', '#F59E0B', '#EC4899', '#10B981', '#8B5CF6'];
+  const tipoColors = {
+    CIPTEA: cipteaBlue,
+    CIPF: cipfPurple,
+    'Passe Livre': mainGreen,
+  };
   const datasets = demografiaData.tipos.map((tipo, index) => ({
     label: tipo,
     data: faixaLabels.map((faixa) => demografiaData?.porTipo?.[tipo]?.[faixa] || 0),
-    backgroundColor: tipoColors[index % tipoColors.length],
-    borderColor: tipoColors[index % tipoColors.length],
+    backgroundColor: withOpacity(tipoColors[tipo] || '#0EA5E9', barFillOpacity),
+    borderColor: tipoColors[tipo] || '#0EA5E9',
+    borderWidth: 2,
   }));
 
   renderChart('chartFaixa', faixaLabels, datasets, 'Por faixa etária', 'bar', {
     plugins: { legend: { display: true, position: 'top' } },
-    scales: { x: { stacked: true }, y: { beginAtZero: true, stacked: true } },
-    layout: { padding: { right: 30, top: 10, left: 4, bottom: 6 } },
+    indexAxis: 'y',
+    scales: { x: { stacked: true, beginAtZero: true }, y: { stacked: true } },
+    layout: { padding: { right: 20, top: 10, left: 4, bottom: 6 } },
   });
 
   const totais = instituicoesResumo?.totais || {};
-  const tipoLabels = ['CIPTEA', 'CIPF', 'Passe Livre'];
-  const tipoValores = [totais.ciptea || 0, totais.cipf || 0, totais.passe_livre || 0];
+  const tipoLabels = ['CIPTEA', 'Passe Livre', 'CIPF'];
+  const tipoValores = [totais.ciptea || 0, totais.passe_livre || 0, totais.cipf || 0];
   const totalTipos = tipoValores.reduce((a, b) => a + b, 0);
   const totalTiposEl = document.getElementById('totalTipos');
   if (totalTiposEl) totalTiposEl.innerText = `${totalTipos} emissões`;
-  renderChart('chartTipos', tipoLabels, tipoValores, 'Por tipo de carteira');
+  renderChart(
+    'chartTipos',
+    tipoLabels,
+    [
+      {
+        label: 'Distribuição por tipo',
+        data: tipoValores,
+        backgroundColor: [
+          withOpacity(cipteaBlue, barFillOpacity),
+          withOpacity(mainGreen, barFillOpacity),
+          withOpacity(cipfPurple, barFillOpacity),
+        ],
+        borderColor: [cipteaBlue, mainGreen, cipfPurple],
+        borderWidth: 2,
+      },
+    ],
+    'Por tipo de carteira',
+    'bar',
+    { indexAxis: 'y', plugins: { legend: { display: false } } },
+  );
 
   const regioes = instituicoesResumo?.regioes || {};
-  const regiaoLabels = Object.keys(regioes).length ? Object.keys(regioes) : ['Sem dados'];
+  const regiaoLabels = Array.from(
+    new Set([...regioesPadrao, ...Object.keys(regioes || {})]),
+  );
   const regiaoValores = regiaoLabels.map((r) => regioes[r] || 0);
   const totalRegiao = regiaoValores.reduce((a, b) => a + b, 0);
   const totalRegiaoEl = document.getElementById('totalRegiao');
   if (totalRegiaoEl) totalRegiaoEl.innerText = `${totalRegiao} carteiras`;
-  renderChart('chartRegiao', regiaoLabels, regiaoValores, 'Carteiras por região', 'bar', {
-    indexAxis: 'y',
-    scales: { x: { beginAtZero: true } },
-    layout: { padding: { right: 50, top: 10, left: 4, bottom: 6 } },
-  });
+  renderChart(
+    'chartRegiao',
+    regiaoLabels,
+    [
+      {
+        label: 'Carteiras por região',
+        data: regiaoValores,
+        backgroundColor: withOpacity(mainGreen, barFillOpacity),
+        borderColor: mainGreen,
+        borderWidth: 2,
+      },
+    ],
+    'Carteiras por região',
+    'bar',
+    {
+      indexAxis: 'y',
+      scales: { x: { beginAtZero: true } },
+      layout: { padding: { right: 50, top: 10, left: 4, bottom: 6 } },
+    },
+  );
 
   if (municipiosResumo) {
     const totalInst = Object.values(municipiosResumo).reduce((acc, item) => acc + (item?.instituicoes || 0), 0);
@@ -311,40 +329,6 @@ function renderPainel(demografia, instituicoesResumo, municipiosResumo) {
       total: (valores.ciptea || 0) + (valores.cipf || 0) + (valores.passe_livre || 0),
       ...valores,
     }));
-
-    const top10 = listaMunicipios
-      .filter((item) => item.total > 0)
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 10);
-
-    renderChart(
-      'chartTopMunicipios',
-      top10.map((m) => m.municipio),
-      [
-        {
-          label: 'CIPTEA',
-          data: top10.map((m) => m.ciptea || 0),
-          backgroundColor: '#1B5E20',
-        },
-        {
-          label: 'CIPF',
-          data: top10.map((m) => m.cipf || 0),
-          backgroundColor: '#0EA5E9',
-        },
-        {
-          label: 'Passe Livre',
-          data: top10.map((m) => m.passe_livre || 0),
-          backgroundColor: accentRed,
-        },
-      ],
-      'Top municípios',
-      'bar',
-      {
-        plugins: { legend: { display: true, position: 'top' } },
-        indexAxis: 'y',
-        scales: { x: { stacked: true, beginAtZero: true }, y: { stacked: true } },
-      },
-    );
 
     const tbody = document.getElementById('municipioTableBody');
     if (tbody) {
