@@ -1,6 +1,6 @@
-const mainGreen = '#1B5E20';
+const mainGreen = '#A1C84D';      // verde novo
 const cipteaBlue = '#003c6c';
-const cipfPurple = '#6a1b9a';
+const cipfPurple = '#7d5b8c';     // roxo novo da CIPF
 const barFillOpacity = 0.22;
 
 const faixaOrder = ['0-12', '13-17', '18-29', '30-44', '45-59', '18-59', '60+', '0-17'];
