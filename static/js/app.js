@@ -426,8 +426,25 @@ async function setupMap(municipiosStatus, municipiosInstituicoes) {
     attribution: '&copy; OpenStreetMap',
   }).addTo(map);
 
-  const response = await fetch(resolveAssetPath('sc_municipios.geojson'));
-  const data = await response.json();
+  async function loadGeoJson() {
+    try {
+      const response = await fetch(resolveAssetPath('sc_municipios.geojson'));
+      if (response.ok) {
+        return response.json();
+      }
+    } catch (_) {
+      // tenta fallback remoto
+    }
+
+    const fallbackUrl = 'https://servicodados.ibge.gov.br/api/v3/malhas/municipios/SC?formato=application/json';
+    const remote = await fetch(fallbackUrl);
+    if (!remote.ok) {
+      throw new Error('Não foi possível carregar o mapa de SC');
+    }
+    return remote.json();
+  }
+
+  const data = await loadGeoJson();
 
   const geoLayer = L.geoJson(data, {
     style: (feature) => ({
