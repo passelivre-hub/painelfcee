@@ -114,6 +114,18 @@ def load_demografia_rows():
     return registros
 
 
+def montar_grade_demografia(registros, tipos_padrao, faixas_padrao):
+    grade = {tipo: {faixa: 0 for faixa in faixas_padrao} for tipo in tipos_padrao}
+
+    for registro in registros:
+        tipo = (registro.get("tipo_deficiencia") or "").strip()
+        faixa = (registro.get("faixa_etaria") or "").strip()
+        if tipo in grade and faixa in grade[tipo]:
+            grade[tipo][faixa] += to_non_negative_int(registro.get("quantidade", 0), 0)
+
+    return grade
+
+
 def preparar_demografia_por_deficiencia(registros):
     faixas_padrao = ["0-12", "13-17", "18-59", "60+"]
     tipos = sorted({r["tipo_deficiencia"] for r in registros})
@@ -266,6 +278,8 @@ def admin():
         "Grande Florianópolis", "Sul", "Norte", "Vale do Itajaí", "Serra", "Oeste"
     ]
     faixas_opcoes = ["0-12", "13-17", "18-59", "60+"]
+    tipos_opcoes = ["CIPTEA", "CIPF", "Passe Livre"]
+    demografia_grade = montar_grade_demografia(demografia_registros, tipos_opcoes, faixas_opcoes)
 
     if request.method == 'POST':
         form_type = request.form.get("form_type")
@@ -329,24 +343,15 @@ def admin():
             save_instituicoes(instituicoes)
 
         if form_type == "demografia":
-            tipos = request.form.getlist("tipo_deficiencia[]")
-            faixas = request.form.getlist("faixa_etaria[]")
-            quantidades = request.form.getlist("quantidade[]")
-            deletions = set(request.form.getlist("delete_demografia"))
-
             linhas = []
-            for idx, (tipo, faixa, quantidade) in enumerate(zip(tipos, faixas, quantidades)):
-                if str(idx) in deletions:
-                    continue
-                tipo = (tipo or "").strip()
-                faixa = (faixa or "").strip()
-                if not tipo or not faixa:
-                    continue
-                linhas.append({
-                    "tipo_deficiencia": tipo,
-                    "faixa_etaria": faixa,
-                    "quantidade": quantidade
-                })
+            for tipo in tipos_opcoes:
+                for faixa in faixas_opcoes:
+                    quantidade = request.form.get(f"demografia[{tipo}][{faixa}]", "0")
+                    linhas.append({
+                        "tipo_deficiencia": tipo,
+                        "faixa_etaria": faixa,
+                        "quantidade": quantidade,
+                    })
 
             save_demografia(linhas)
 
@@ -356,8 +361,10 @@ def admin():
         "admin.html",
         instituicoes=instituicoes,
         demografia_registros=demografia_registros,
+        demografia_grade=demografia_grade,
         regiao_opcoes=regiao_opcoes,
         faixas_opcoes=faixas_opcoes,
+        tipos_opcoes=tipos_opcoes,
         instituicoes_resumo=resumir_instituicoes(instituicoes),
         municipio_regiao=municipio_regiao,
         municipios_lista=sorted(municipio_regiao.keys()),
