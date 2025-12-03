@@ -70,7 +70,6 @@
     .demographic-panel {
       position: absolute;
       top: 96px;
-      right: 12px;
       background: rgba(255,255,255,0.96);
       padding: 14px;
       box-shadow: var(--shadow);
@@ -83,12 +82,8 @@
       overflow-y: auto;
     }
 
-    .panel-columns {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      align-items: start;
-    }
+    .panel-left { left: 12px; }
+    .panel-right { right: 12px; }
 
     .summary-grid {
       display: grid;
@@ -118,12 +113,7 @@
       color: var(--gov-green);
     }
 
-    .demographic-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 10px;
-      align-items: stretch;
-    }
+    .demographic-grid { display: grid; gap: 10px; align-items: stretch; }
 
     .card {
       background: #f7f9fb;
@@ -165,10 +155,9 @@
         right: auto;
         max-height: none;
       }
-      .panel-columns { grid-template-columns: 1fr; }
-      .summary-grid { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
-    }
-  </style>
+        .summary-grid { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+      }
+    </style>
 </head>
 <body>
   <div id="map"></div>
@@ -190,42 +179,42 @@
     </div>
   </div>
 
-  <div class="demographic-panel">
-    <div class="panel-columns">
-      <div class="panel-column left">
-        <div class="summary-grid">
-          <div class="metric-card">
-            <h4>Total de carteiras</h4>
-            <div class="metric" id="totalCarteiras">-</div>
-          </div>
-          <div class="metric-card">
-            <h4>Instituições credenciadas</h4>
-            <div class="metric" id="totalInstituicoes">-</div>
-          </div>
-          <div class="metric-card">
-            <h4>Municípios atendidos</h4>
-            <div class="metric" id="totalMunicipios">-</div>
-          </div>
+  <div class="demographic-panel panel-left">
+    <div class="demographic-grid">
+      <div class="summary-grid">
+        <div class="metric-card">
+          <h4>Total de carteiras</h4>
+          <div class="metric" id="totalCarteiras">-</div>
         </div>
-
-        <div class="card">
-          <h4>Carteiras por região</h4>
-          <div class="total" id="totalRegiao">-</div>
-          <canvas id="chartRegiao" height="140"></canvas>
+        <div class="metric-card">
+          <h4>Instituições credenciadas</h4>
+          <div class="metric" id="totalInstituicoes">-</div>
+        </div>
+        <div class="metric-card">
+          <h4>Municípios atendidos</h4>
+          <div class="metric" id="totalMunicipios">-</div>
         </div>
       </div>
 
-      <div class="panel-column right">
-        <div class="card">
-          <h4>Carteiras por faixa etária</h4>
-          <div class="total" id="totalFaixa">-</div>
-          <canvas id="chartFaixa" height="160"></canvas>
-        </div>
-        <div class="card">
-          <h4>Quantidade por tipo de carteira</h4>
-          <div class="total" id="totalTipos">-</div>
-          <canvas id="chartTipos" height="140"></canvas>
-        </div>
+      <div class="card">
+        <h4>Carteiras por região</h4>
+        <div class="total" id="totalRegiao">-</div>
+        <canvas id="chartRegiao" height="140"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="demographic-panel panel-right">
+    <div class="demographic-grid">
+      <div class="card">
+        <h4>Carteiras por faixa etária</h4>
+        <div class="total" id="totalFaixa">-</div>
+        <canvas id="chartFaixa" height="160"></canvas>
+      </div>
+      <div class="card">
+        <h4>Quantidade por tipo de carteira</h4>
+        <div class="total" id="totalTipos">-</div>
+        <canvas id="chartTipos" height="140"></canvas>
       </div>
     </div>
   </div>
