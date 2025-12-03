@@ -156,6 +156,8 @@
       margin-bottom: 6px;
     }
 
+    /* estilos da tabela ficaram aqui, mas o bloco foi removido do HTML;
+       não atrapalham em nada e você pode apagar depois se quiser */
     .table-card {
       margin-top: 12px;
       background: #fff;
@@ -163,8 +165,6 @@
       border-radius: 12px;
       padding: 12px;
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
-
-      /* limite de altura da tabela + scroll */
       max-height: 260px;
       overflow: auto;
     }
@@ -293,27 +293,6 @@
         <div class="total">Distribuição por tipo</div>
         <canvas id="chartTopMunicipios" height="120"></canvas>
       </div>
-    </div>
-
-    <div class="table-card">
-      <div class="table-header">
-        <h4>Totais por município e tipo de carteira</h4>
-        <input type="text" id="municipioFilter" placeholder="Filtrar município">
-      </div>
-      <table>
-        <thead>
-          <tr>
-            <th>Município</th>
-            <th>Região</th>
-            <th>Instituições</th>
-            <th>CIPTEA</th>
-            <th>CIPF</th>
-            <th>Passe Livre</th>
-            <th>Total</th>
-          </tr>
-        </thead>
-        <tbody id="municipioTableBody"></tbody>
-      </table>
     </div>
   </div>
 
