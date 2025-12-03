@@ -198,8 +198,8 @@ def save_demografia(linhas):
 def save_instituicoes(instituicoes):
     with open(CSV_FILE, 'w', newline='', encoding='utf-8') as f:
         fieldnames = [
-            "municipio","regiao","nome","tipo","endereco","telefone","email",
-            "quantidade_ciptea","quantidade_cipf","quantidade_passe_livre"
+            "municipio", "regiao", "nome", "tipo", "endereco", "telefone", "email",
+            "quantidade_ciptea", "quantidade_cipf", "quantidade_passe_livre"
         ]
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
@@ -254,7 +254,7 @@ def logout():
 
 
 # --- Painel Administrativo ---
-@app.route('/admin', methods=['GET','POST'])
+@app.route('/admin', methods=['GET', 'POST'])
 def admin():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
@@ -271,6 +271,7 @@ def admin():
         form_type = request.form.get("form_type")
 
         if form_type == "instituicoes":
+            # exclusão
             deletes = request.form.getlist("delete")
             if deletes:
                 new_instituicoes = {}
@@ -281,6 +282,7 @@ def admin():
                             new_instituicoes[municipio].append(inst)
                 instituicoes = new_instituicoes
 
+            # edição
             for key in request.form:
                 if key.startswith("nome_"):
                     parts = key.split("_")
@@ -294,10 +296,17 @@ def admin():
                         instituicoes[municipio][idx]["endereco"] = request.form.get(f"endereco_{municipio}_{idx}", "").strip()
                         instituicoes[municipio][idx]["telefone"] = request.form.get(f"telefone_{municipio}_{idx}", "").strip()
                         instituicoes[municipio][idx]["email"] = request.form.get(f"email_{municipio}_{idx}", "").strip()
-                        instituicoes[municipio][idx]["quantidade_ciptea"] = normalize_numeric_field(request.form.get(f"quantidade_ciptea_{municipio}_{idx}", ""))
-                        instituicoes[municipio][idx]["quantidade_cipf"] = normalize_numeric_field(request.form.get(f"quantidade_cipf_{municipio}_{idx}", ""))
-                        instituicoes[municipio][idx]["quantidade_passe_livre"] = normalize_numeric_field(request.form.get(f"quantidade_passe_livre_{municipio}_{idx}", ""))
+                        instituicoes[municipio][idx]["quantidade_ciptea"] = normalize_numeric_field(
+                            request.form.get(f"quantidade_ciptea_{municipio}_{idx}", "")
+                        )
+                        instituicoes[municipio][idx]["quantidade_cipf"] = normalize_numeric_field(
+                            request.form.get(f"quantidade_cipf_{municipio}_{idx}", "")
+                        )
+                        instituicoes[municipio][idx]["quantidade_passe_livre"] = normalize_numeric_field(
+                            request.form.get(f"quantidade_passe_livre_{municipio}_{idx}", "")
+                        )
 
+            # adicionar nova instituição
             if request.form.get("add"):
                 municipio = request.form.get("municipio", "").strip()
                 if municipio:
@@ -355,12 +364,23 @@ def admin():
     )
 
 
+# --- Rotas para arquivos de dados --- #
+@app.route('/dados.csv')
+def dados_csv():
+    return send_from_directory(os.getcwd(), CSV_FILE)
+
+
+@app.route('/demografia.csv')
+def demografia_csv():
+    return send_from_directory(os.getcwd(), DEMO_FILE)
+
+
 @app.route('/sc_municipios.geojson')
 def geojson():
     return send_from_directory(os.getcwd(), 'sc_municipios.geojson')
 
 
-# --- Executa no Render ---
+# --- Executa no Render / localmente ---
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
