@@ -410,13 +410,13 @@ function buildPopupHtml(nome, status, municipiosInstituicoes) {
 }
 
 function resolveAssetPath(fileName) {
-  const base = window.location.pathname.endsWith('/index.html')
-    ? window.location.pathname.replace(/\/index\.html$/, '/')
-    : window.location.pathname.endsWith('/')
-      ? window.location.pathname
-      : `${window.location.pathname.replace(/[^/]*$/, '')}`;
-
-  return `${base}${fileName}`;
+  // Resolve sempre a partir da pasta do HTML atual, mesmo quando o endereço
+  // termina sem barra (ex.: https://example.com/painel) ou está publicado em
+  // um subcaminho do GitHub Pages. Ao remover o último segmento do pathname e
+  // reconstruir a URL, garantimos que os CSV/GeoJSON sejam buscados na mesma
+  // pasta do index.html em vez de na raiz do domínio.
+  const basePath = window.location.pathname.replace(/[^/]*$/, '');
+  return `${window.location.origin}${basePath}${fileName}`;
 }
 
 async function setupMap(municipiosStatus, municipiosInstituicoes) {
