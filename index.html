@@ -8,7 +8,7 @@
   <style>
     :root {
       --gov-red: #bf1e2e;
-      --gov-green: #1b5e20;
+      --gov-green: #A1C84D; /* se quiser, pode trocar para #A1C84D para casar com o JS */
       --gov-blue: #003c6c;
       --surface: #f8fafc;
       --shadow: 0 12px 30px rgba(0,0,0,0.12);
@@ -98,18 +98,19 @@
     .panel-left {
       left: 12px;
       right: auto;
-      width: min(420px, 30vw);
+      width: min(420px, 25vw); /* até 25% da tela */
     }
 
     .panel-right {
       right: 12px;
       left: auto;
-      width: min(420px, 30vw);
+      width: min(420px, 25vw); /* até 25% da tela */
     }
 
+    /* TOTAIS EMPILHADOS */
     .summary-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: 1fr; /* um embaixo do outro */
       gap: 10px;
       margin-bottom: 10px;
     }
