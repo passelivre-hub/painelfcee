@@ -8,7 +8,7 @@
   <style>
     :root {
       --gov-red: #bf1e2e;
-      --gov-green: #A1C84D; /* mesmo verde do app.js, se estiver usando */
+      --gov-green: #A1C84D;
       --gov-blue: #003c6c;
       --surface: #f8fafc;
       --shadow: 0 12px 30px rgba(0,0,0,0.12);
@@ -28,59 +28,69 @@
       width: 100%;
     }
 
-    /* BLOCO TÍTULO + LOGOS + BUSCA
-       Centralizado no espaço entre a borda esquerda e o painel da direita */
+    /* CONTÊINER DO TÍTULO ENTRE ESQUERDA E PAINEL DIREITO */
     .top-bar {
       position: absolute;
       top: 14px;
       left: 12px;
-      right: calc(12px + min(460px, 28vw) + 12px); /* espaço ocupado pelo painel direito + margens */
+      right: calc(12px + min(460px, 28vw) + 12px); /* espaço do painel à direita */
+      z-index: 1000;
+      padding: 0;
+      border: none;
+      box-shadow: none;
+      text-align: center; /* permite centralizar o cartão interno */
+    }
+
+    /* CARTÃO BRANCO CENTRALIZADO, ENCOLHIDO AO CONTEÚDO */
+    .top-bar-inner {
       background: white;
-      padding: 12px 16px;
+      padding: 10px 14px;
       box-shadow: var(--shadow);
       border-radius: 14px;
-      z-index: 1000;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      font-size: 14px;
       border: 1px solid #e2e8f0;
+      display: inline-flex; /* encolhe para caber conteúdo */
+      flex-direction: column;
+      gap: 8px;
+      font-size: 14px;
+      max-width: 520px;   /* limite máximo, mas não força ocupar tudo */
+      width: auto;
     }
 
     .top-bar-row {
       display: flex;
       align-items: center;
-      justify-content: center; /* centraliza o conjunto no espaço disponível */
-      gap: 16px;
+      justify-content: center;
+      gap: 10px; /* logos mais próximas do título */
     }
 
     .brand {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 6px;
     }
 
     .brand img {
-      height: 42px;
+      height: 40px;
       width: auto;
       border-radius: 6px;
     }
 
     .title {
       text-align: center;
-      font-size: 15px;
+      font-size: 17px;   /* título maior */
       font-weight: 700;
       line-height: 1.3;
       color: #0f172a;
-      flex: 0 1 420px; /* mantém um tamanho semelhante ao anterior */
+      flex: 0 1 auto;
+      max-width: 360px;  /* evita ficar muito largo e quebra melhor as linhas */
     }
 
     .title .subtitle {
       font-weight: 500;
       display: block;
       margin-top: 2px;
-      line-height: 1.2;
-      font-size: 12px;
+      line-height: 1.25;
+      font-size: 13px;   /* subtítulos um pouco maiores */
     }
 
     #searchBox {
@@ -107,11 +117,11 @@
       backdrop-filter: blur(4px);
       border: 1px solid #e2e8f0;
 
-      width: min(460px, 28vw); /* ocupa a lateral direita */
+      width: min(460px, 28vw);
       display: flex;
       flex-direction: column;
       gap: 8px;
-      overflow: hidden; /* desktop: sem barra de rolagem externa */
+      overflow: hidden;
     }
 
     .panel-scroll {
@@ -120,7 +130,6 @@
       padding-right: 4px;
     }
 
-    /* Bloco de totais */
     .summary-grid {
       display: grid;
       grid-template-columns: 1fr;
@@ -144,7 +153,6 @@
       letter-spacing: 0.02em;
     }
 
-    /* número em PRETO */
     .metric-card .metric {
       font-size: 18px;
       font-weight: 800;
@@ -180,16 +188,14 @@
       max-height: 140px;
     }
 
-    /* Alturas reduzidas para evitar scroll exagerado em desktop */
     #chartFaixa { height: 130px !important; }
     #chartTipos { height: 120px !important; }
     #chartRegiao { height: 120px !important; }
 
-    /* Botão para esconder/mostrar painel */
     .panel-toggle {
       position: absolute;
       top: 50%;
-      right: calc(12px + min(460px, 28vw)); /* colado na borda do painel */
+      right: calc(12px + min(460px, 28vw));
       transform: translateY(-50%);
       z-index: 1100;
       background: #ffffff;
@@ -209,19 +215,24 @@
       font-size: 14px;
     }
 
-    @media (max-width: 460px) {
+    @media (max-width: 760px) {
       .top-bar {
-        width: 92%;
-        flex-direction: column;
-        text-align: center;
-        padding: 12px;
         left: 50%;
         right: auto;
         transform: translateX(-50%);
+        width: 92%;
+        text-align: center;
+      }
+
+      .top-bar-inner {
+        max-width: none;
+        width: 100%;
+        display: flex;
       }
 
       .top-bar-row {
         flex-direction: row;
+        gap: 10px;
       }
 
       .brand img {
@@ -229,7 +240,7 @@
       }
 
       #searchBox {
-        width: 50%;
+        width: 100%;
       }
 
       .demographic-panel {
@@ -263,23 +274,25 @@
 <body>
   <div id="map"></div>
 
-  <!-- BLOCO TÍTULO + LOGOS + BUSCA CENTRALIZADO ENTRE ESQUERDA E PAINEL -->
+  <!-- BLOCO ESQUERDO: LOGOS + TÍTULO + BUSCA -->
   <div class="top-bar">
-    <div class="top-bar-row">
-      <div class="brand">
-        <img src="static/img/govsc.jpg" alt="Governo de Santa Catarina">
+    <div class="top-bar-inner">
+      <div class="top-bar-row">
+        <div class="brand">
+          <img src="static/img/govsc.jpg" alt="Governo de Santa Catarina">
+        </div>
+        <div class="title">
+          <span>Painel Demográfico SC</span>
+          <span class="subtitle">Fundação Catarinense de Educação Especial</span>
+          <span class="subtitle">Carteiras de Identificação e Passe Livre Intermunicipal</span>
+        </div>
+        <div class="brand">
+          <img src="static/img/fcee.jpg" alt="FCEE">
+        </div>
       </div>
-      <div class="title">
-        <span>Painel Demográfico SC</span>
-        <span class="subtitle">Fundação Catarinense de Educação Especial</span>
-        <span class="subtitle">Carteiras de Identificação e Passe Livre Intermunicipal</span>
+      <div style="margin-top:4px;">
+        <input type="text" id="searchBox" placeholder="Buscar município...">
       </div>
-      <div class="brand">
-        <img src="static/img/fcee.jpg" alt="FCEE">
-      </div>
-    </div>
-    <div style="margin-top:4px;">
-      <input type="text" id="searchBox" placeholder="Buscar município...">
     </div>
   </div>
 
@@ -325,7 +338,6 @@
   <script src="static/js/app.js"></script>
 
   <script>
-    // Toggle para esconder/mostrar o painel
     (function() {
       const panel = document.getElementById('demographicPanel');
       const btn = document.getElementById('togglePanel');
