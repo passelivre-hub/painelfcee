@@ -8,7 +8,7 @@
   <style>
     :root {
       --gov-red: #bf1e2e;
-      --gov-green: #1b5e20; /* se quiser, pode trocar para #A1C84D para casar com o JS */
+      --gov-green: #A1C84D; /* mesmo verde do app.js, se estiver usando */
       --gov-blue: #003c6c;
       --surface: #f8fafc;
       --shadow: 0 12px 30px rgba(0,0,0,0.12);
@@ -80,10 +80,12 @@
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
     }
 
-    /* Painéis demográficos laterais */
+    /* Painel demográfico lateral direito */
     .demographic-panel {
       position: absolute;
       top: 96px;
+      right: 12px;
+      left: auto;
       background: rgba(255,255,255,0.96);
       padding: 14px;
       box-shadow: var(--shadow);
@@ -93,24 +95,14 @@
       border: 1px solid #e2e8f0;
       max-height: calc(100vh - 120px);
       overflow-y: auto;
+
+      width: min(460px, 28vw); /* ocupa a lateral direita, ~1/4–1/3 da tela */
     }
 
-    .panel-left {
-      left: 12px;
-      right: auto;
-      width: min(420px, 25vw); /* até 25% da tela */
-    }
-
-    .panel-right {
-      right: 12px;
-      left: auto;
-      width: min(420px, 25vw); /* até 25% da tela */
-    }
-
-    /* TOTAIS EMPILHADOS */
+    /* Bloco de totais (só um agora, mas já empilhado se crescer) */
     .summary-grid {
       display: grid;
-      grid-template-columns: 1fr; /* um embaixo do outro */
+      grid-template-columns: 1fr;
       gap: 10px;
       margin-bottom: 10px;
     }
@@ -131,11 +123,12 @@
       letter-spacing: 0.02em;
     }
 
+    /* número em PRETO */
     .metric-card .metric {
       font-size: 18px;
       font-weight: 800;
       margin-top: 4px;
-      color: var(--gov-green);
+      color: #000000;
     }
 
     .card {
@@ -165,6 +158,29 @@
       border-radius: 6px;
     }
 
+    /* Botão para esconder/mostrar painel */
+    .panel-toggle {
+      position: absolute;
+      top: 50%;
+      right: 10px;
+      transform: translateY(-50%);
+      z-index: 1100;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 999px 0 0 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .panel-toggle span.icon {
+      font-size: 14px;
+    }
+
     @media (max-width: 760px) {
       .top-bar {
         width: 92%;
@@ -192,8 +208,12 @@
         max-height: none;
       }
 
-      .summary-grid {
-        grid-template-columns: 1fr;
+      .panel-toggle {
+        top: auto;
+        bottom: 10px;
+        right: 10px;
+        border-radius: 999px;
+        transform: none;
       }
     }
   </style>
@@ -218,21 +238,31 @@
     </div>
   </div>
 
-  <!-- PAINEL ESQUERDO: totais + carteiras por região -->
-  <div class="demographic-panel panel-left">
+  <!-- Botão para esconder/mostrar o painel -->
+  <button id="togglePanel" class="panel-toggle">
+    <span class="icon">⯈</span>
+    <span class="label">Esconder painel</span>
+  </button>
+
+  <!-- PAINEL ÚNICO À DIREITA -->
+  <div class="demographic-panel" id="demographicPanel">
     <div class="summary-grid">
       <div class="metric-card">
         <h4>Total de carteiras</h4>
         <div class="metric" id="totalCarteiras">-</div>
       </div>
-      <div class="metric-card">
-        <h4>Instituições credenciadas</h4>
-        <div class="metric" id="totalInstituicoes">-</div>
-      </div>
-      <div class="metric-card">
-        <h4>Municípios atendidos</h4>
-        <div class="metric" id="totalMunicipios">-</div>
-      </div>
+    </div>
+
+    <div class="card">
+      <h4>Carteiras por faixa etária</h4>
+      <div class="total" id="totalFaixa">-</div>
+      <canvas id="chartFaixa" height="140"></canvas>
+    </div>
+
+    <div class="card">
+      <h4>Quantidade por tipo de carteira</h4>
+      <div class="total" id="totalTipos">-</div>
+      <canvas id="chartTipos" height="140"></canvas>
     </div>
 
     <div class="card">
@@ -242,24 +272,33 @@
     </div>
   </div>
 
-  <!-- PAINEL DIREITO: faixa etária + tipo de carteira -->
-  <div class="demographic-panel panel-right">
-    <div class="card">
-      <h4>Carteiras por faixa etária</h4>
-      <div class="total" id="totalFaixa">-</div>
-      <canvas id="chartFaixa" height="160"></canvas>
-    </div>
-
-    <div class="card">
-      <h4>Quantidade por tipo de carteira</h4>
-      <div class="total" id="totalTipos">-</div>
-      <canvas id="chartTipos" height="140"></canvas>
-    </div>
-  </div>
-
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="static/js/app.js"></script>
+
+  <script>
+    // Toggle para esconder/mostrar o painel
+    (function() {
+      const panel = document.getElementById('demographicPanel');
+      const btn = document.getElementById('togglePanel');
+      const icon = btn.querySelector('.icon');
+      const label = btn.querySelector('.label');
+
+      btn.addEventListener('click', () => {
+        const isHidden = panel.style.display === 'none';
+
+        if (isHidden) {
+          panel.style.display = '';
+          icon.textContent = '⯈';
+          label.textContent = 'Esconder painel';
+        } else {
+          panel.style.display = 'none';
+          icon.textContent = '⯇';
+          label.textContent = 'Mostrar painel';
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
