@@ -1,334 +1,482 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-  <meta charset="UTF-8">
-  <title>Painel Demográfico SC</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <style>
-    :root {
-      --gov-red: #bf1e2e;
-      --gov-green: #A1C84D;
-      --gov-blue: #003c6c;
-      --surface: #f8fafc;
-      --shadow: 0 12px 30px rgba(0,0,0,0.12);
+const mainGreen = '#A1C84D';      // verde novo
+const cipteaBlue = '#003c6c';
+const cipfPurple = '#7d5b8c';     // roxo novo da CIPF
+const barFillOpacity = 0.22;
+
+const faixaOrder = ['0-12', '13-17', '18-29', '30-44', '45-59', '18-59', '60+', '0-17'];
+const faixasFixas = ['0-12', '13-17', '18-59', '60+'];
+const defaultFaixas = Object.fromEntries(faixaOrder.map((faixa) => [faixa, 0]));
+const regioesPadrao = ['Grande Florianópolis', 'Sul', 'Norte', 'Vale do Itajaí', 'Serra', 'Oeste'];
+const tiposFixos = ['CIPTEA', 'CIPF', 'Passe Livre'];
+
+function withOpacity(hex, alpha) {
+  const sanitized = hex.replace('#', '');
+  const bigint = parseInt(sanitized, 16);
+  const r = (bigint >> 16) & 255;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function toNonNegativeInt(value, fallback = 0) {
+  const parsed = parseInt(String(value ?? '').trim(), 10);
+  return Number.isFinite(parsed) ? Math.max(parsed, 0) : fallback;
+}
+
+function normalizeNumericField(value) {
+  return toNonNegativeInt(value, 0);
+}
+
+function safeStr(row, key) {
+  return (row?.[key] ?? '').trim();
+}
+
+function buildDados(rows) {
+  const instituicoes = {};
+  const todosMunicipios = new Set();
+  const municipioRegiao = {};
+
+  rows.forEach((row) => {
+    const municipio = safeStr(row, 'municipio');
+    if (!municipio) return;
+    todosMunicipios.add(municipio);
+
+    const instNome = safeStr(row, 'nome');
+    if (!instNome) return;
+
+    const tipoRaw = safeStr(row, 'tipo');
+    const tipoNormalizado = tipoRaw.toLowerCase() === 'ambos' ? 'Todos' : tipoRaw;
+
+    const inst = {
+      nome: instNome,
+      regiao: safeStr(row, 'regiao'),
+      municipio,
+      tipo: tipoNormalizado,
+      endereco: safeStr(row, 'endereco'),
+      telefone: safeStr(row, 'telefone'),
+      email: safeStr(row, 'email'),
+      quantidade_ciptea: String(normalizeNumericField(row.quantidade_ciptea)),
+      quantidade_cipf: String(normalizeNumericField(row.quantidade_cipf)),
+      quantidade_passe_livre: String(normalizeNumericField(row.quantidade_passe_livre)),
+    };
+
+    if (!instituicoes[municipio]) {
+      instituicoes[municipio] = [];
     }
+    instituicoes[municipio].push(inst);
 
-    body, html {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      font-family: "Segoe UI", Arial, sans-serif;
-      background: linear-gradient(180deg, #f4f7fb 0%, #eef2f7 100%);
-      color: #0f172a;
+    if (inst.regiao && !municipioRegiao[municipio]) {
+      municipioRegiao[municipio] = inst.regiao;
     }
+  });
 
-    #map {
-      height: 100vh;
-      width: 100%;
-    }
+  const municipiosStatus = {};
+  todosMunicipios.forEach((municipio) => {
+    const insts = instituicoes[municipio] || [];
+    const tipos = [...new Set(insts.map((inst) => inst.tipo).filter(Boolean))];
+    municipiosStatus[municipio] = tipos.includes('Todos')
+      ? 'Todos'
+      : tipos.length
+        ? tipos.sort().join(' e ')
+        : 'Nenhum';
+  });
 
-    /* CONTÊINER DO TÍTULO ENTRE ESQUERDA E PAINEL DIREITO */
-    .top-bar {
-      position: absolute;
-      top: 14px;
-      left: 12px;
-      right: calc(12px + min(460px, 28vw) + 12px); /* espaço do painel à direita */
-      z-index: 1000;
-      padding: 0;
-      border: none;
-      box-shadow: none;
-      text-align: center;
-      pointer-events: none; /* deixa o espaço vazio “vazar” clique para o mapa */
-    }
+  return { municipiosStatus, municipiosInstituicoes: instituicoes, municipioRegiao };
+}
 
-    /* CARTÃO BRANCO CENTRALIZADO, ENCOLHIDO AO CONTEÚDO */
-    .top-bar-inner {
-      background: white;
-      padding: 10px 14px;
-      box-shadow: var(--shadow);
-      border-radius: 14px;
-      border: 1px solid #e2e8f0;
-      display: inline-flex;
-      flex-direction: column;
-      gap: 8px;
-      font-size: 14px;
-      max-width: 520px;
-      width: auto;
-      pointer-events: auto; /* só o cartão recebe clique */
-    }
+function buildDemografia(rows) {
+  const faixasSet = new Set(faixasFixas);
+  const porTipo = Object.fromEntries(
+    tiposFixos.map((tipo) => [tipo, Object.fromEntries(faixasFixas.map((faixa) => [faixa, 0]))]),
+  );
+  const totalPorFaixa = Object.fromEntries(faixasFixas.map((faixa) => [faixa, 0]));
 
-    .top-bar-row {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-    }
+  rows.forEach((row) => {
+    const faixa = safeStr(row, 'faixa_etaria') || safeStr(row, 'faixa');
+    const tipo = safeStr(row, 'tipo_deficiencia') || safeStr(row, 'tipo');
+    const quantidade = normalizeNumericField(row.quantidade);
 
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
+    if (!faixa || !tipo) return;
+    if (!tiposFixos.includes(tipo)) return;
 
-    .brand img {
-      height: 40px;
-      width: auto;
-      border-radius: 6px;
-    }
+    faixasSet.add(faixa);
 
-    .title {
-      text-align: center;
-      font-size: 17px;
-      font-weight: 700;
-      line-height: 1.3;
-      color: #0f172a;
-      flex: 0 1 auto;
-      max-width: 360px;
-    }
+    if (!porTipo[tipo]) porTipo[tipo] = Object.fromEntries(faixasFixas.map((fa) => [fa, 0]));
+    porTipo[tipo][faixa] = (porTipo[tipo][faixa] || 0) + quantidade;
+    totalPorFaixa[faixa] = (totalPorFaixa[faixa] || 0) + quantidade;
+  });
 
-    .title .subtitle {
-      font-weight: 500;
-      display: block;
-      margin-top: 2px;
-      line-height: 1.25;
-      font-size: 13px;
-    }
+  const faixaLabels = [
+    ...faixaOrder.filter((faixa) => faixasSet.has(faixa)),
+    ...[...faixasSet].filter((faixa) => !faixaOrder.includes(faixa)).sort(),
+  ];
 
-    #searchBox {
-      padding: 6px 9px;          /* menor */
-      border-radius: 10px;
-      border: 1px solid #cbd5e1;
-      width: 80%;               /* não ocupa tudo */
-      max-width: 260px;         /* limite máximo */
-      margin: 0 auto;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
-      font-size: 12px;
-    }
+  return {
+    faixaLabels,
+    tipos: tiposFixos,
+    porTipo,
+    totalPorFaixa,
+  };
+}
 
-    /* PAINEL DEMOGRÁFICO LATERAL DIREITO (TOPO ATÉ EMBAIXO) */
-    .demographic-panel {
-      position: absolute;
-      top: 14px;
-      right: 12px;
-      bottom: 14px;
-      left: auto;
-      background: rgba(255,255,255,0.96);
-      padding: 12px;
-      box-shadow: var(--shadow);
-      border-radius: 14px;
-      z-index: 1000;
-      backdrop-filter: blur(4px);
-      border: 1px solid #e2e8f0;
+function resumirInstituicoes(instituicoes) {
+  const totais = { ciptea: 0, cipf: 0, passe_livre: 0 };
+  const regioes = {};
+  const municipios = {};
 
-      width: min(460px, 28vw);
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      overflow: hidden;
-    }
+  Object.values(instituicoes).forEach((insts) => {
+    insts.forEach((inst) => {
+      const qtCiptea = toNonNegativeInt(inst.quantidade_ciptea, 0);
+      const qtCipf = toNonNegativeInt(inst.quantidade_cipf, 0);
+      const qtPasse = toNonNegativeInt(inst.quantidade_passe_livre, 0);
 
-    .panel-scroll {
-      flex: 1;
-      overflow-y: auto;
-      padding-right: 4px;
-    }
+      totais.ciptea += qtCiptea;
+      totais.cipf += qtCipf;
+      totais.passe_livre += qtPasse;
 
-    .card {
-      background: #f7f9fb;
-      border: 1px solid #e2e8f0;
-      border-radius: 10px;
-      padding: 10px;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
-      margin-top: 6px;
-    }
-
-    .card h4 {
-      margin: 0 0 4px 0;
-      color: var(--gov-blue);
-      font-size: 14px;
-    }
-
-    .card .total {
-      font-size: 16px;
-      font-weight: 600;
-      color: #0f172a;
-      margin-bottom: 4px;
-    }
-
-    canvas {
-      background: white;
-      border-radius: 6px;
-    }
-
-    #chartFaixa { height: 130px !important; }
-    #chartTipos { height: 120px !important; }
-    #chartRegiao { height: 180px !important; } /* mais alto para caber todas as regiões */
-
-    /* Botão para esconder/mostrar painel – AGORA MAIS EMBAIXO */
-    .panel-toggle {
-      position: absolute;
-      right: calc(12px + min(460px, 28vw));
-      bottom: 20px;
-      top: auto;
-      transform: none;
-      z-index: 1100;
-      background: #ffffff;
-      border: 1px solid #cbd5e1;
-      border-radius: 999px 0 0 999px;
-      padding: 6px 10px;
-      font-size: 12px;
-      cursor: pointer;
-      box-shadow: var(--shadow);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      white-space: nowrap;
-    }
-
-    .panel-toggle span.icon {
-      font-size: 14px;
-    }
-
-    @media (max-width: 760px) {
-      .top-bar {
-        left: 50%;
-        right: auto;
-        transform: translateX(-50%);
-        width: 92%;
-        text-align: center;
-        pointer-events: none;
+      const regiao = (inst.regiao || '').trim();
+      if (!regiao || ['não informada', 'nao informada', 'não informado', 'nao informado'].includes(regiao.toLowerCase())) {
+        return;
       }
 
-      .top-bar-inner {
-        max-width: none;
-        width: 100%;
-        display: flex;
-        pointer-events: auto;
-      }
+      regioes[regiao] = (regioes[regiao] || 0) + qtCiptea + qtCipf + qtPasse;
 
-      .top-bar-row {
-        flex-direction: row;
-        gap: 10px;
-      }
-
-      .brand img {
-        height: 38px;
-      }
-
-      #searchBox {
-        width: 100%;
-        max-width: none;
-      }
-
-      .demographic-panel {
-        position: static;
-        width: calc(100% - 24px);
-        max-width: none;
-        margin: 10px auto 0 auto;
-        top: auto;
-        left: auto;
-        right: auto;
-        bottom: auto;
-        height: auto;
-        overflow: visible;
-      }
-
-      .panel-scroll {
-        max-height: none;
-        overflow: visible;
-      }
-
-      .panel-toggle {
-        top: auto;
-        bottom: 10px;
-        right: 10px;
-        border-radius: 999px;
-        transform: none;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div id="map"></div>
-
-  <!-- BLOCO ESQUERDO: LOGOS + TÍTULO + BUSCA -->
-  <div class="top-bar">
-    <div class="top-bar-inner">
-      <div class="top-bar-row">
-        <div class="brand">
-          <img src="static/img/govsc.jpg" alt="Governo de Santa Catarina">
-        </div>
-        <div class="title">
-          <span>Painel Demográfico SC</span>
-          <span class="subtitle">Fundação Catarinense de Educação Especial</span>
-          <span class="subtitle">Carteiras de Identificação e Passe Livre Intermunicipal</span>
-        </div>
-        <div class="brand">
-          <img src="static/img/fcee.jpg" alt="FCEE">
-        </div>
-      </div>
-      <div style="margin-top:4px;">
-        <input type="text" id="searchBox" placeholder="Buscar município...">
-      </div>
-    </div>
-  </div>
-
-  <!-- Botão para esconder/mostrar o painel -->
-  <button id="togglePanel" class="panel-toggle">
-    <span class="icon">⯈</span>
-    <span class="label">Esconder painel</span>
-  </button>
-
-  <!-- PAINEL ÚNICO À DIREITA -->
-  <div class="demographic-panel" id="demographicPanel">
-    <div class="panel-scroll">
-      <div class="card">
-        <h4>Carteiras por faixa etária</h4>
-        <!-- contador removido -->
-        <canvas id="chartFaixa"></canvas>
-      </div>
-
-      <div class="card">
-        <h4>Quantidade por tipo de carteira</h4>
-        <div class="total" id="totalTipos">-</div>
-        <canvas id="chartTipos"></canvas>
-      </div>
-
-      <div class="card">
-        <h4>Carteiras por região</h4>
-        <!-- contador removido -->
-        <canvas id="chartRegiao"></canvas>
-      </div>
-    </div>
-  </div>
-
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <script src="static/js/app.js"></script>
-
-  <script>
-    (function() {
-      const panel = document.getElementById('demographicPanel');
-      const btn = document.getElementById('togglePanel');
-      const icon = btn.querySelector('.icon');
-      const label = btn.querySelector('.label');
-
-      btn.addEventListener('click', () => {
-        const isHidden = panel.style.display === 'none';
-
-        if (isHidden) {
-          panel.style.display = '';
-          icon.textContent = '⯈';
-          label.textContent = 'Esconder painel';
-        } else {
-          panel.style.display = 'none';
-          icon.textContent = '⯇';
-          label.textContent = 'Mostrar painel';
+      const municipio = inst.municipio;
+      if (municipio) {
+        if (!municipios[municipio]) {
+          municipios[municipio] = { ciptea: 0, cipf: 0, passe_livre: 0 };
         }
-      });
-    })();
-  </script>
-</body>
-</html>
+        municipios[municipio].ciptea += qtCiptea;
+        municipios[municipio].cipf += qtCipf;
+        municipios[municipio].passe_livre += qtPasse;
+      }
+    });
+  });
+
+  return { totais, regioes, municipios };
+}
+
+function resumirPorMunicipio(instituicoes) {
+  const resumo = {};
+
+  Object.entries(instituicoes).forEach(([municipio, insts]) => {
+    const dados = {
+      regiao: insts.find((inst) => inst.regiao)?.regiao || '',
+      instituicoes: insts.length,
+      ciptea: 0,
+      cipf: 0,
+      passe_livre: 0,
+    };
+
+    insts.forEach((inst) => {
+      dados.ciptea += toNonNegativeInt(inst.quantidade_ciptea, 0);
+      dados.cipf += toNonNegativeInt(inst.quantidade_cipf, 0);
+      dados.passe_livre += toNonNegativeInt(inst.quantidade_passe_livre, 0);
+    });
+
+    resumo[municipio] = dados;
+  });
+
+  return resumo;
+}
+
+function renderChart(ctxId, labels, data, title, type = 'bar', chartOptions = {}) {
+  const ctx = document.getElementById(ctxId);
+  if (!ctx) return null;
+
+  const isPrebuiltDataset =
+    Array.isArray(data) && data.length && typeof data[0] === 'object' && data[0].data !== undefined;
+
+  const datasets = isPrebuiltDataset
+    ? data
+    : [
+        {
+          label: title,
+          data,
+          borderColor: mainGreen,
+          backgroundColor: withOpacity(mainGreen, barFillOpacity),
+          borderWidth: 2,
+          tension: type === 'line' ? 0.3 : 0,
+          fill: type === 'line',
+        },
+      ];
+
+  datasets.forEach((dataset) => {
+    if (!dataset.borderColor) dataset.borderColor = mainGreen;
+    if (!dataset.backgroundColor) dataset.backgroundColor = withOpacity(mainGreen, barFillOpacity);
+    if (dataset.borderWidth === undefined) dataset.borderWidth = 2;
+    if (dataset.tension === undefined) dataset.tension = type === 'line' ? 0.3 : 0;
+    if (dataset.fill === undefined) dataset.fill = type === 'line';
+  });
+
+  return new Chart(ctx, {
+    type,
+    data: {
+      labels,
+      datasets,
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      layout: { padding: { right: 30, top: 10, left: 4, bottom: 6 } },
+      scales: { y: { beginAtZero: true } },
+      indexAxis: 'x',
+      ...chartOptions,
+    },
+  });
+}
+
+function renderPainel(demografia, instituicoesResumo, municipiosResumo) {
+  const demografiaData = demografia || { faixaLabels: [], tipos: [], porTipo: {}, totalPorFaixa: {} };
+  const faixaLabels = demografiaData.faixaLabels;
+
+  const tipoColors = {
+    CIPTEA: cipteaBlue,
+    CIPF: cipfPurple,
+    'Passe Livre': mainGreen,
+  };
+
+  // Gráfico por faixa etária (barras horizontais empilhadas)
+  const datasetsFaixa = demografiaData.tipos.map((tipo) => ({
+    label: tipo,
+    data: faixaLabels.map((faixa) => demografiaData?.porTipo?.[tipo]?.[faixa] || 0),
+    backgroundColor: withOpacity(tipoColors[tipo] || '#0EA5E9', barFillOpacity),
+    borderColor: tipoColors[tipo] || '#0EA5E9',
+    borderWidth: 2,
+  }));
+
+  renderChart('chartFaixa', faixaLabels, datasetsFaixa, 'Por faixa etária', 'bar', {
+    plugins: { legend: { display: true, position: 'top' } },
+    indexAxis: 'y',
+    scales: { x: { stacked: true, beginAtZero: true }, y: { stacked: true } },
+    layout: { padding: { right: 30, top: 10, left: 4, bottom: 6 } },
+  });
+
+  // Gráfico por tipo de carteira
+  const totais = instituicoesResumo?.totais || {};
+  const tipoLabels = ['CIPTEA', 'Passe Livre', 'CIPF'];
+  const tipoValores = [totais.ciptea || 0, totais.passe_livre || 0, totais.cipf || 0];
+  const totalTipos = tipoValores.reduce((a, b) => a + b, 0);
+  const totalTiposEl = document.getElementById('totalTipos');
+  if (totalTiposEl) totalTiposEl.innerText = `${totalTipos} emissões`;
+
+  renderChart(
+    'chartTipos',
+    tipoLabels,
+    [
+      {
+        label: 'Distribuição por tipo',
+        data: tipoValores,
+        backgroundColor: [
+          withOpacity(cipteaBlue, barFillOpacity),
+          withOpacity(mainGreen, barFillOpacity),
+          withOpacity(cipfPurple, barFillOpacity),
+        ],
+        borderColor: [cipteaBlue, mainGreen, cipfPurple],
+        borderWidth: 2,
+      },
+    ],
+    'Por tipo de carteira',
+    'bar',
+    {
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: { x: { beginAtZero: true } },
+    },
+  );
+
+  // Gráfico por região – garante todas as regiões padrão
+  const regioes = instituicoesResumo?.regioes || {};
+  const regiaoLabels = Array.from(new Set([...regioesPadrao, ...Object.keys(regioes || {})]));
+  const regiaoValores = regiaoLabels.map((r) => regioes[r] || 0);
+
+  renderChart(
+    'chartRegiao',
+    regiaoLabels,
+    [
+      {
+        label: 'Carteiras por região',
+        data: regiaoValores,
+        backgroundColor: withOpacity(mainGreen, barFillOpacity),
+        borderColor: mainGreen,
+        borderWidth: 2,
+      },
+    ],
+    'Carteiras por região',
+    'bar',
+    {
+      indexAxis: 'y',
+      scales: { x: { beginAtZero: true } },
+      layout: { padding: { right: 50, top: 10, left: 4, bottom: 6 } },
+    },
+  );
+
+  // Resumo por município ainda é útil para cálculos internos se precisar
+  if (municipiosResumo) {
+    // Se no futuro quiser voltar a exibir algum total, já está pronto aqui.
+  }
+}
+
+function getColor(status) {
+  return status && status !== 'Nenhum' ? mainGreen : '#e5e7eb';
+}
+
+function buildPopupHtml(nome, status, municipiosInstituicoes) {
+  let adjustedStatus = status;
+  if (status === 'Passe Livre' || status === 'CIPTEA e Passe Livre' || status === 'Todos') {
+    adjustedStatus = status === 'Passe Livre' ? 'CIPF e Passe Livre' : 'CIPTEA, CIPF e Passe Livre';
+  }
+
+  let popupHtml = `<b>${nome}</b><br>Status: ${adjustedStatus}`;
+
+  if (municipiosInstituicoes[nome]) {
+    popupHtml += '<br><br><b>Instituições credenciadas:</b><ul>';
+    municipiosInstituicoes[nome].forEach((inst) => {
+      popupHtml += `
+        <li>
+          <b>${inst.nome}</b> (${inst.tipo})<br>
+          ${inst.endereco}<br>
+          Tel: ${inst.telefone}<br>
+          Email: ${inst.email}<br>
+          Quantidade: CIPTEA: ${inst.quantidade_ciptea || 0}, CIPF: ${inst.quantidade_cipf || 0}, Passe Livre: ${inst.quantidade_passe_livre || 0}
+        </li>
+      `;
+    });
+    popupHtml += '</ul>';
+  }
+
+  return popupHtml;
+}
+
+function resolveAssetPath(fileName) {
+  const basePath = window.location.pathname.replace(/[^/]*$/, '');
+  return `${window.location.origin}${basePath}${fileName}`;
+}
+
+async function setupMap(municipiosStatus, municipiosInstituicoes) {
+  const map = L.map('map').setView([-27.2, -50.5], 7);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap',
+  }).addTo(map);
+
+  async function loadGeoJson() {
+    try {
+      const response = await fetch(resolveAssetPath('sc_municipios.geojson'));
+      if (response.ok) {
+        return response.json();
+      }
+    } catch (_) {
+      // tenta fallback remoto
+    }
+
+    const fallbackUrl = 'https://servicodados.ibge.gov.br/api/v3/malhas/municipios/SC?formato=application/json';
+    const remote = await fetch(fallbackUrl);
+    if (!remote.ok) {
+      throw new Error('Não foi possível carregar o mapa de SC');
+    }
+    return remote.json();
+  }
+
+  const data = await loadGeoJson();
+
+  const geoLayer = L.geoJson(data, {
+    style: (feature) => ({
+      color: '#333',
+      weight: 1,
+      fillColor: getColor(municipiosStatus[feature.properties.name] || 'Nenhum'),
+      fillOpacity: 0.65,
+    }),
+    onEachFeature: (feature, layer) => {
+      const nome = feature.properties.name;
+      const status = municipiosStatus[nome] || 'Nenhum';
+      const popupHtml = buildPopupHtml(nome, status, municipiosInstituicoes);
+
+      layer.bindPopup(popupHtml);
+      layer.featureStatus = status;
+    },
+  }).addTo(map);
+
+  return { map, geoLayer };
+}
+
+function setupSearch(map, geoLayer) {
+  const searchBox = document.getElementById('searchBox');
+  if (!searchBox) return;
+
+  searchBox.addEventListener('keyup', (e) => {
+    if (e.key !== 'Enter' || !geoLayer) return;
+
+    const query = searchBox.value.toLowerCase();
+    geoLayer.eachLayer((layer) => {
+      if (layer.feature?.properties?.name?.toLowerCase() === query) {
+        map.fitBounds(layer.getBounds());
+        layer.openPopup();
+      }
+    });
+  });
+}
+
+function parseCsv(text) {
+  return new Promise((resolve, reject) => {
+    Papa.parse(text, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => resolve(results.data),
+      error: reject,
+    });
+  });
+}
+
+async function fetchCsvData(path) {
+  const response = await fetch(resolveAssetPath(path));
+  if (!response.ok) {
+    throw new Error(`Não foi possível carregar ${path}`);
+  }
+  const text = await response.text();
+  return parseCsv(text);
+}
+
+async function init() {
+  try {
+    const [dadosRows, demografiaRows] = await Promise.all([
+      fetchCsvData('dados.csv'),
+      fetchCsvData('demografia.csv').catch(() => []),
+    ]);
+
+    const { municipiosStatus, municipiosInstituicoes } = buildDados(dadosRows);
+    const municipiosResumo = resumirPorMunicipio(municipiosInstituicoes);
+    const demografiaFaixas = buildDemografia(demografiaRows || []);
+    const instituicoesResumo = resumirInstituicoes(municipiosInstituicoes);
+
+    renderPainel(demografiaFaixas, instituicoesResumo, municipiosResumo);
+
+    const { map, geoLayer } = await setupMap(municipiosStatus, municipiosInstituicoes);
+    setupSearch(map, geoLayer);
+  } catch (error) {
+    console.error('Erro ao carregar dados', error);
+    const existingNotice = document.getElementById('loadError');
+    if (!existingNotice) {
+      const notice = document.createElement('div');
+      notice.id = 'loadError';
+      notice.style.position = 'absolute';
+      notice.style.top = '20px';
+      notice.style.left = '50%';
+      notice.style.transform = 'translateX(-50%)';
+      notice.style.background = '#fee2e2';
+      notice.style.color = '#991b1b';
+      notice.style.padding = '12px 16px';
+      notice.style.border = '1px solid #fecaca';
+      notice.style.borderRadius = '10px';
+      notice.style.boxShadow = '0 8px 20px rgba(0,0,0,0.15)';
+      notice.style.zIndex = '1200';
+      notice.innerHTML = `
+        <strong>Erro ao carregar dados.</strong><br>
+        Confirme que os arquivos CSV e GeoJSON estão publicados na mesma pasta do <code>index.html</code>.
+      `;
+      document.body.appendChild(notice);
+    }
+  }
+}
+
+window.addEventListener('load', init);
