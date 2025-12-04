@@ -486,6 +486,24 @@ async function fetchWithFallback(urls) {
 }
 
 async function fetchCsvData(path) {
+  // Para dados e demografia, tentamos primeiro a API JSON do backend
+  if (path === 'dados.csv' || path === 'demografia.csv') {
+    const apiName = path.startsWith('dados') ? 'dados' : 'demografia';
+    const candidatesJson = [
+      `${API_BASE}/api/${apiName}`,         // quando tudo roda junto no Render
+      `${RENDER_BASE_URL}/api/${apiName}`, // quando o front está no GitHub Pages
+    ];
+
+    try {
+      const responseJson = await fetchWithFallback(candidatesJson);
+      return responseJson.json(); // já retorna array de objetos JSON
+    } catch (e) {
+      console.warn('Falha ao carregar API JSON, tentando CSV estático...', e);
+      // cai para o fluxo antigo via CSV
+    }
+  }
+
+  // 🔙 Fallback antigo: tenta ler o CSV diretamente
   const candidates = [path, `${API_BASE}/${path}`, `${RENDER_BASE_URL}/${path}`];
   const response = await fetchWithFallback(candidates);
   const text = await response.text();
