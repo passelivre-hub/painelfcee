@@ -486,7 +486,7 @@ async function fetchWithFallback(urls) {
 }
 
 async function fetchCsvData(path) {
-  const candidates = [path, `${API_BASE}/${path}`, `${RENDER_BASE_URL}/${path}`];
+  const candidates = [`${RENDER_BASE_URL}/${path}`, `${API_BASE}/${path}`, path];
   const response = await fetchWithFallback(candidates);
   const text = await response.text();
   return parseCsv(text);
