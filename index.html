@@ -21,6 +21,7 @@
       font-family: "Segoe UI", Arial, sans-serif;
       background: linear-gradient(180deg, #f4f7fb 0%, #eef2f7 100%);
       color: #0f172a;
+      font-size: 15px;
     }
 
     #map {
@@ -114,14 +115,14 @@
       bottom: 14px;
       left: auto;
       background: rgba(255,255,255,0.96);
-      padding: 12px;
+      padding: 14px 14px 16px;
       box-shadow: var(--shadow);
       border-radius: 14px;
       z-index: 1000;
       backdrop-filter: blur(4px);
       border: 1px solid #e2e8f0;
 
-      width: min(460px, 28vw);
+      width: min(520px, 32vw);
       display: flex;
       flex-direction: column;
       gap: 8px;
@@ -137,33 +138,36 @@
     .card {
       background: #f7f9fb;
       border: 1px solid #e2e8f0;
-      border-radius: 10px;
-      padding: 10px;
+      border-radius: 12px;
+      padding: 12px;
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
       margin-top: 6px;
     }
 
     .card h4 {
-      margin: 0 0 4px 0;
+      margin: 0 0 6px 0;
       color: var(--gov-blue);
-      font-size: 14px;
+      font-size: 16px;
+      font-weight: 700;
     }
 
     .card .total {
-      font-size: 16px;
+      font-size: 17px;
       font-weight: 600;
       color: #0f172a;
-      margin-bottom: 4px;
+      margin-bottom: 8px;
     }
 
     canvas {
       background: white;
-      border-radius: 6px;
+      border-radius: 8px;
+      width: 100% !important;
+      display: block;
     }
 
-    #chartFaixa { height: 130px !important; }
-    #chartTipos { height: 120px !important; }
-    #chartRegiao { height: 180px !important; } /* mais alto para caber todas as regiões */
+    #chartFaixa { height: 170px !important; }
+    #chartTipos { height: 150px !important; }
+    #chartRegiao { height: 210px !important; } /* mais alto para caber todas as regiões */
 
     /* Botão para esconder/mostrar painel – AGORA MAIS EMBAIXO */
     .panel-toggle {
@@ -284,19 +288,19 @@
   <div class="demographic-panel" id="demographicPanel">
     <div class="panel-scroll">
       <div class="card">
-        <h4>Carteiras por faixa etária</h4>
+        <h4>Emissões por faixa etária</h4>
         <!-- contador removido -->
         <canvas id="chartFaixa"></canvas>
       </div>
 
       <div class="card">
-        <h4>Quantidade por tipo de carteira</h4>
+        <h4>Emissões por tipo de deficiência</h4>
         <div class="total" id="totalTipos">-</div>
         <canvas id="chartTipos"></canvas>
       </div>
 
       <div class="card">
-        <h4>Carteiras por região</h4>
+        <h4>Emissões por região de SC</h4>
         <!-- contador removido -->
         <canvas id="chartRegiao"></canvas>
       </div>

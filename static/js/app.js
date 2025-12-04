@@ -209,21 +209,55 @@ function renderChart(ctxId, labels, data, title, type = 'bar', chartOptions = {}
     if (dataset.fill === undefined) dataset.fill = type === 'line';
   });
 
+  const { plugins: chartPlugins = {}, layout: chartLayout = {}, scales: chartScales = {}, ...restOptions } =
+    chartOptions || {};
+
+  const defaultTooltip = {
+    backgroundColor: '#ffffff',
+    bodyColor: '#0f172a',
+    titleColor: '#0f172a',
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    padding: 10,
+    displayColors: false,
+  };
+
+  const mergedOptions = {
+    responsive: true,
+    plugins: {
+      legend: { display: false, ...(chartPlugins.legend || {}) },
+      tooltip: { ...defaultTooltip, ...(chartPlugins.tooltip || {}) },
+    },
+    layout: { padding: { right: 30, top: 10, left: 4, bottom: 6 }, ...chartLayout },
+    scales: {
+      ...chartScales,
+      y: { beginAtZero: true, ...(chartScales.y || {}) },
+    },
+    indexAxis: 'x',
+    ...restOptions,
+  };
+
   return new Chart(ctx, {
     type,
     data: {
       labels,
       datasets,
     },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      layout: { padding: { right: 30, top: 10, left: 4, bottom: 6 } },
-      scales: { y: { beginAtZero: true } },
-      indexAxis: 'x',
-      ...chartOptions,
-    },
+    options: mergedOptions,
   });
+}
+
+function buildTooltipCallbacks({ axis = 'y', labelSource = 'dataset' } = {}) {
+  return {
+    callbacks: {
+      label: (context) => {
+        const value = axis === 'x' ? context.parsed.x : context.parsed.y;
+        const sourceLabel = labelSource === 'category' ? context.label : context.dataset?.label;
+        const label = sourceLabel || context.label || '';
+        return [`[]${label}`, `Carteiras emitidas: ${value ?? 0}`];
+      },
+    },
+  };
 }
 
 function renderPainel(demografia, instituicoesResumo, municipiosResumo) {
@@ -246,7 +280,10 @@ function renderPainel(demografia, instituicoesResumo, municipiosResumo) {
   }));
 
   renderChart('chartFaixa', faixaLabels, datasetsFaixa, 'Por faixa etária', 'bar', {
-    plugins: { legend: { display: true, position: 'top' } },
+    plugins: {
+      legend: { display: true, position: 'top', labels: { font: { size: 13, weight: '600' } } },
+      tooltip: buildTooltipCallbacks({ axis: 'x', labelSource: 'dataset' }).callbacks,
+    },
     indexAxis: 'y',
     scales: { x: { stacked: true, beginAtZero: true }, y: { stacked: true } },
     layout: { padding: { right: 30, top: 10, left: 4, bottom: 6 } },
@@ -254,11 +291,11 @@ function renderPainel(demografia, instituicoesResumo, municipiosResumo) {
 
   // Gráfico por tipo de carteira
   const totais = instituicoesResumo?.totais || {};
-  const tipoLabels = ['CIPTEA', 'Passe Livre', 'CIPF'];
-  const tipoValores = [totais.ciptea || 0, totais.passe_livre || 0, totais.cipf || 0];
+  const tipoLabels = ['CIPTEA', 'CIPF', 'Passe Livre'];
+  const tipoValores = [totais.ciptea || 0, totais.cipf || 0, totais.passe_livre || 0];
   const totalTipos = tipoValores.reduce((a, b) => a + b, 0);
   const totalTiposEl = document.getElementById('totalTipos');
-  if (totalTiposEl) totalTiposEl.innerText = `${totalTipos} emissões`;
+  if (totalTiposEl) totalTiposEl.innerText = `(Total:) ${totalTipos} emissões`;
 
   renderChart(
     'chartTipos',
@@ -269,10 +306,10 @@ function renderPainel(demografia, instituicoesResumo, municipiosResumo) {
         data: tipoValores,
         backgroundColor: [
           withOpacity(cipteaBlue, barFillOpacity),
-          withOpacity(mainGreen, barFillOpacity),
           withOpacity(cipfPurple, barFillOpacity),
+          withOpacity(mainGreen, barFillOpacity),
         ],
-        borderColor: [cipteaBlue, mainGreen, cipfPurple],
+        borderColor: [cipteaBlue, cipfPurple, mainGreen],
         borderWidth: 2,
       },
     ],
@@ -280,7 +317,10 @@ function renderPainel(demografia, instituicoesResumo, municipiosResumo) {
     'bar',
     {
       indexAxis: 'y',
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false },
+        tooltip: buildTooltipCallbacks({ axis: 'x', labelSource: 'category' }).callbacks,
+      },
       scales: { x: { beginAtZero: true } },
     },
   );
@@ -307,6 +347,7 @@ function renderPainel(demografia, instituicoesResumo, municipiosResumo) {
     {
       indexAxis: 'y',
       scales: { x: { beginAtZero: true } },
+      plugins: { tooltip: buildTooltipCallbacks({ axis: 'x', labelSource: 'category' }).callbacks },
       layout: { padding: { right: 50, top: 10, left: 4, bottom: 6 } },
     },
   );
