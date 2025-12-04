@@ -14,7 +14,7 @@ const tiposFixos = ['CIPTEA', 'CIPF', 'Passe Livre'];
  * - Prioriza buscar os CSV/GeoJSON no mesmo host do frontend (GitHub Pages ou Render).
  * - Em caso de falha, faz fallback para a instância do Render indicada abaixo.
  */
-const RENDER_BASE_URL = 'https://passelivre-hub.onrender.com'; // 🔴 TROQUE SE A URL FOR OUTRA
+const RENDER_BASE_URL = 'https://painelfcee.onrender.com'; // 🔴 TROQUE SE A URL FOR OUTRA
 const API_BASE = window.location.origin;
 
 function withOpacity(hex, alpha) {
