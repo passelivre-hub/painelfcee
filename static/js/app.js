@@ -11,14 +11,11 @@ const tiposFixos = ['CIPTEA', 'CIPF', 'Passe Livre'];
 
 /**
  * URL base do backend (Render).
- * - Se estiver em github.io -> força usar o Render.
- * - Se estiver no próprio Render/local -> usa o origin atual.
+ * - Prioriza buscar os CSV/GeoJSON no mesmo host do frontend (GitHub Pages ou Render).
+ * - Em caso de falha, faz fallback para a instância do Render indicada abaixo.
  */
 const RENDER_BASE_URL = 'https://passelivre-hub.onrender.com'; // 🔴 TROQUE SE A URL FOR OUTRA
-const API_BASE =
-  window.location.hostname.endsWith('github.io')
-    ? RENDER_BASE_URL
-    : window.location.origin;
+const API_BASE = window.location.origin;
 
 function withOpacity(hex, alpha) {
   const sanitized = hex.replace('#', '');
@@ -408,12 +405,11 @@ async function setupMap(municipiosStatus, municipiosInstituicoes) {
   }).addTo(map);
 
   async function loadGeoJson() {
-    // GeoJSON sempre vindo do backend (Render)
-    const url = `${API_BASE}/sc_municipios.geojson`;
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error('Não foi possível carregar o mapa de SC a partir do backend');
-    }
+    const response = await fetchWithFallback([
+      'sc_municipios.geojson',
+      `${API_BASE}/sc_municipios.geojson`,
+      `${RENDER_BASE_URL}/sc_municipios.geojson`,
+    ]);
     return response.json();
   }
 
@@ -467,13 +463,31 @@ function parseCsv(text) {
   });
 }
 
-async function fetchCsvData(path) {
-  // Sempre busca os CSVs no backend (Render)
-  const url = `${API_BASE}/${path}`;
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Não foi possível carregar ${path} a partir do backend`);
+async function fetchWithFallback(urls) {
+  const tried = new Set();
+  let lastError;
+
+  for (const url of urls) {
+    if (!url || tried.has(url)) continue;
+    tried.add(url);
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        lastError = new Error(`Falha ao buscar ${url}: ${response.status}`);
+        continue;
+      }
+      return response;
+    } catch (err) {
+      lastError = err;
+    }
   }
+
+  throw lastError || new Error('Não foi possível carregar o recurso solicitado');
+}
+
+async function fetchCsvData(path) {
+  const candidates = [path, `${API_BASE}/${path}`, `${RENDER_BASE_URL}/${path}`];
+  const response = await fetchWithFallback(candidates);
   const text = await response.text();
   return parseCsv(text);
 }

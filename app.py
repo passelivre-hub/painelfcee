@@ -9,8 +9,15 @@ app.secret_key = os.environ.get("SECRET_KEY", "chave-secreta-trocar")
 ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
 ADMIN_PASS = os.environ.get("ADMIN_PASS", "fcee2025")
 
-CSV_FILE = "dados.csv"
-DEMO_FILE = "demografia.csv"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.environ.get("DATA_DIR", os.getcwd())
+os.makedirs(DATA_DIR, exist_ok=True)
+
+DEFAULT_CSV = os.path.join(BASE_DIR, "dados.csv")
+DEFAULT_DEMOGRAFIA = os.path.join(BASE_DIR, "demografia.csv")
+
+CSV_FILE = os.path.join(DATA_DIR, "dados.csv")
+DEMO_FILE = os.path.join(DATA_DIR, "demografia.csv")
 
 
 # -------- CORS PARA PERMITIR ACESSO DO GITHUB PAGES -------- #
@@ -34,6 +41,14 @@ def to_non_negative_int(value, default=0):
         return default
 
 
+def ensure_seed_file(target_path, default_source):
+    if os.path.exists(target_path):
+        return
+    if default_source and os.path.exists(default_source):
+        with open(default_source, 'rb') as src, open(target_path, 'wb') as dst:
+            dst.write(src.read())
+
+
 def normalize_numeric_field(value):
     return str(to_non_negative_int(value, 0))
 
@@ -46,6 +61,7 @@ def normalize_tipo(valor):
 
 
 def load_dados():
+    ensure_seed_file(CSV_FILE, DEFAULT_CSV)
     instituicoes = {}
     todos_municipios = set()
     municipios_totais = {}
@@ -106,6 +122,7 @@ def load_dados():
 
 
 def load_demografia_rows():
+    ensure_seed_file(DEMO_FILE, DEFAULT_DEMOGRAFIA)
     registros = []
     if os.path.exists(DEMO_FILE):
         with open(DEMO_FILE, newline='', encoding='utf-8') as f:
@@ -387,17 +404,19 @@ def admin():
 # --- Rotas para arquivos de dados --- #
 @app.route('/dados.csv')
 def dados_csv():
-    return send_from_directory(os.getcwd(), CSV_FILE)
+    ensure_seed_file(CSV_FILE, DEFAULT_CSV)
+    return send_from_directory(DATA_DIR, os.path.basename(CSV_FILE))
 
 
 @app.route('/demografia.csv')
 def demografia_csv():
-    return send_from_directory(os.getcwd(), DEMO_FILE)
+    ensure_seed_file(DEMO_FILE, DEFAULT_DEMOGRAFIA)
+    return send_from_directory(DATA_DIR, os.path.basename(DEMO_FILE))
 
 
 @app.route('/sc_municipios.geojson')
 def geojson():
-    return send_from_directory(os.getcwd(), 'sc_municipios.geojson')
+    return send_from_directory(BASE_DIR, 'sc_municipios.geojson')
 
 
 # --- Executa no Render / localmente ---
