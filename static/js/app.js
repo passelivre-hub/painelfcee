@@ -295,7 +295,7 @@ function renderPainel(demografia, instituicoesResumo, municipiosResumo) {
   const tipoValores = [totais.ciptea || 0, totais.cipf || 0, totais.passe_livre || 0];
   const totalTipos = tipoValores.reduce((a, b) => a + b, 0);
   const totalTiposEl = document.getElementById('totalTipos');
-  if (totalTiposEl) totalTiposEl.innerText = `(Total:) ${totalTipos} emissões`;
+  if (totalTiposEl) totalTiposEl.innerText = `Total: ${totalTipos} emissões`;
 
   renderChart(
     'chartTipos',
