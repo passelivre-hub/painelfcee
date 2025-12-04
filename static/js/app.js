@@ -1,7 +1,3 @@
-// 🔗 BACKEND API (Render)
-// Ajusta a URL abaixo se o domínio do Render for diferente
-const API_BASE = 'https://passelivre-hub.onrender.com';
-
 const mainGreen = '#A1C84D';      // verde novo
 const cipteaBlue = '#003c6c';
 const cipfPurple = '#7d5b8c';     // roxo novo da CIPF
@@ -12,6 +8,17 @@ const faixasFixas = ['0-12', '13-17', '18-59', '60+'];
 const defaultFaixas = Object.fromEntries(faixaOrder.map((faixa) => [faixa, 0]));
 const regioesPadrao = ['Grande Florianópolis', 'Sul', 'Norte', 'Vale do Itajaí', 'Serra', 'Oeste'];
 const tiposFixos = ['CIPTEA', 'CIPF', 'Passe Livre'];
+
+/**
+ * URL base do backend (Render).
+ * - Se estiver em github.io -> força usar o Render.
+ * - Se estiver no próprio Render/local -> usa o origin atual.
+ */
+const RENDER_BASE_URL = 'https://passelivre-hub.onrender.com'; // 🔴 TROQUE SE A URL FOR OUTRA
+const API_BASE =
+  window.location.hostname.endsWith('github.io')
+    ? RENDER_BASE_URL
+    : window.location.origin;
 
 function withOpacity(hex, alpha) {
   const sanitized = hex.replace('#', '');
@@ -393,11 +400,6 @@ function buildPopupHtml(nome, status, municipiosInstituicoes) {
   return popupHtml;
 }
 
-function resolveAssetPath(fileName) {
-  const basePath = window.location.pathname.replace(/[^/]*$/, '');
-  return `${window.location.origin}${basePath}${fileName}`;
-}
-
 async function setupMap(municipiosStatus, municipiosInstituicoes) {
   const map = L.map('map').setView([-27.2, -50.5], 7);
 
@@ -406,23 +408,13 @@ async function setupMap(municipiosStatus, municipiosInstituicoes) {
   }).addTo(map);
 
   async function loadGeoJson() {
-    const candidates = [
-      `${API_BASE}/sc_municipios.geojson`,        // 1) backend no Render
-      resolveAssetPath('sc_municipios.geojson'),  // 2) mesmo servidor (quando rodar via Flask)
-      'https://servicodados.ibge.gov.br/api/v3/malhas/municipios/SC?formato=application/json', // 3) fallback IBGE
-    ];
-
-    for (const url of candidates) {
-      try {
-        const response = await fetch(url);
-        if (response.ok) {
-          return response.json();
-        }
-      } catch (_) {
-        // tenta o próximo
-      }
+    // GeoJSON sempre vindo do backend (Render)
+    const url = `${API_BASE}/sc_municipios.geojson`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error('Não foi possível carregar o mapa de SC a partir do backend');
     }
-    throw new Error('Não foi possível carregar o mapa de SC');
+    return response.json();
   }
 
   const data = await loadGeoJson();
@@ -475,16 +467,12 @@ function parseCsv(text) {
   });
 }
 
-// 🔁 Agora busca SEMPRE no backend (Render)
 async function fetchCsvData(path) {
+  // Sempre busca os CSVs no backend (Render)
   const url = `${API_BASE}/${path}`;
-  const response = await fetch(url, {
-    headers: {
-      'Accept': 'text/csv',
-    },
-  });
+  const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`Não foi possível carregar ${path}`);
+    throw new Error(`Não foi possível carregar ${path} a partir do backend`);
   }
   const text = await response.text();
   return parseCsv(text);
@@ -525,7 +513,7 @@ async function init() {
       notice.style.zIndex = '1200';
       notice.innerHTML = `
         <strong>Erro ao carregar dados.</strong><br>
-        Confirme que os arquivos CSV e GeoJSON estão acessíveis pelo backend.
+        Confirme que os arquivos CSV e GeoJSON estão acessíveis pelo backend (Render).
       `;
       document.body.appendChild(notice);
     }
