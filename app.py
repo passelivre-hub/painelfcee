@@ -1,6 +1,6 @@
 import csv
 import os
-from flask import Flask, render_template, request, redirect, send_from_directory, session, url_for
+from flask import Flask, render_template, request, redirect, send_from_directory, session, url_for, jsonify
 
 app = Flask(__name__, template_folder='.', static_folder='static', static_url_path='/static')
 app.secret_key = os.environ.get("SECRET_KEY", "chave-secreta-trocar")
@@ -399,6 +399,38 @@ def admin():
         municipio_regiao=municipio_regiao,
         municipios_lista=sorted(municipio_regiao.keys()),
     )
+
+
+# --- APIs em JSON para o painel estático (GitHub Pages) --- #
+@app.route('/api/dados')
+def api_dados():
+    """
+    Retorna as instituições credenciadas diretamente do dados.csv em JSON.
+    Usado pelo painel estático (GitHub Pages).
+    """
+    ensure_seed_file(CSV_FILE, DEFAULT_CSV)
+    rows = []
+
+    if os.path.exists(CSV_FILE):
+        with open(CSV_FILE, newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                row["quantidade_ciptea"] = to_non_negative_int(row.get("quantidade_ciptea", 0), 0)
+                row["quantidade_cipf"] = to_non_negative_int(row.get("quantidade_cipf", 0), 0)
+                row["quantidade_passe_livre"] = to_non_negative_int(row.get("quantidade_passe_livre", 0), 0)
+                rows.append(row)
+
+    return jsonify(rows)
+
+
+@app.route('/api/demografia')
+def api_demografia():
+    """
+    Retorna a demografia como JSON.
+    Usa a mesma lógica de load_demografia_rows().
+    """
+    registros = load_demografia_rows()
+    return jsonify(registros)
 
 
 # --- Rotas para arquivos de dados --- #
