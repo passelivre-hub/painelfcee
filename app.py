@@ -1,14 +1,6 @@
 import csv
 import os
-from flask import (
-    Flask,
-    render_template,
-    request,
-    redirect,
-    send_from_directory,
-    session,
-    url_for,
-)
+from flask import Flask, render_template, request, redirect, send_from_directory, session, url_for
 
 app = Flask(__name__, template_folder='.', static_folder='static', static_url_path='/static')
 app.secret_key = os.environ.get("SECRET_KEY", "chave-secreta-trocar")
@@ -21,13 +13,16 @@ CSV_FILE = "dados.csv"
 DEMO_FILE = "demografia.csv"
 
 
-# -------- CORS global (para o painel no GitHub Pages consumir os CSVs) -------- #
+# -------- CORS PARA PERMITIR ACESSO DO GITHUB PAGES -------- #
 @app.after_request
 def add_cors_headers(response):
-    # Se quiser restringir depois, troca '*' por 'https://teu-usuario.github.io'
+    """
+    Garante que qualquer resposta (incluindo /dados.csv, /demografia.csv e /sc_municipios.geojson)
+    possa ser consumida via navegador a partir de outro domínio (ex: GitHub Pages).
+    """
     response.headers.setdefault("Access-Control-Allow-Origin", "*")
-    response.headers.setdefault("Access-Control-Allow-Headers", "Content-Type")
     response.headers.setdefault("Access-Control-Allow-Methods", "GET, OPTIONS")
+    response.headers.setdefault("Access-Control-Allow-Headers", "Content-Type")
     return response
 
 
@@ -87,7 +82,7 @@ def load_dados():
                         "email": safe_str(row, "email"),
                         "quantidade_ciptea": normalize_numeric_field(qt_ciptea),
                         "quantidade_cipf": normalize_numeric_field(qt_cipf),
-                        "quantidade_passe_livre": normalize_numeric_field(qt_passe),
+                        "quantidade_passe_livre": normalize_numeric_field(qt_passe)
                     }
                     if municipio not in instituicoes:
                         instituicoes[municipio] = []
@@ -126,7 +121,7 @@ def load_demografia_rows():
                 registros.append({
                     "tipo_deficiencia": tipo,
                     "faixa_etaria": faixa,
-                    "quantidade": quantidade,
+                    "quantidade": quantidade
                 })
 
     return registros
@@ -163,7 +158,7 @@ def preparar_demografia_por_deficiencia(registros):
         "faixas": faixas_padrao,
         "tipos": tipos,
         "data": estrutura,
-        "total": total,
+        "total": total
     }
 
 
@@ -221,23 +216,15 @@ def save_demografia(linhas):
             writer.writerow({
                 "tipo_deficiencia": linha.get("tipo_deficiencia", ""),
                 "faixa_etaria": linha.get("faixa_etaria", ""),
-                "quantidade": normalize_numeric_field(linha.get("quantidade", 0)),
+                "quantidade": normalize_numeric_field(linha.get("quantidade", 0))
             })
 
 
 def save_instituicoes(instituicoes):
     with open(CSV_FILE, 'w', newline='', encoding='utf-8') as f:
         fieldnames = [
-            "municipio",
-            "regiao",
-            "nome",
-            "tipo",
-            "endereco",
-            "telefone",
-            "email",
-            "quantidade_ciptea",
-            "quantidade_cipf",
-            "quantidade_passe_livre",
+            "municipio", "regiao", "nome", "tipo", "endereco", "telefone", "email",
+            "quantidade_ciptea", "quantidade_cipf", "quantidade_passe_livre"
         ]
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
@@ -252,11 +239,6 @@ def save_instituicoes(instituicoes):
 
 @app.route('/')
 def index():
-    """
-    Versão servida pelo Flask (útil pra testes internos).
-    O painel público pode rodar 100% estático no GitHub Pages,
-    consumindo apenas /dados.csv e /demografia.csv deste backend.
-    """
     municipiosStatus, municipiosInstituicoes, municipios_totais, municipio_regiao = load_dados()
     demografia_registros = load_demografia_rows()
     instituicoes_resumo = resumir_instituicoes(municipiosInstituicoes)
@@ -306,7 +288,7 @@ def admin():
     demografia_registros = load_demografia_rows()
 
     regiao_opcoes = [
-        "Grande Florianópolis", "Sul", "Norte", "Vale do Itajaí", "Serra", "Oeste",
+        "Grande Florianópolis", "Sul", "Norte", "Vale do Itajaí", "Serra", "Oeste"
     ]
     faixas_opcoes = ["0-12", "13-17", "18-59", "60+"]
     tipos_opcoes = ["CIPTEA", "CIPF", "Passe Livre"]
@@ -365,7 +347,7 @@ def admin():
                         "email": request.form.get("email", "").strip(),
                         "quantidade_ciptea": normalize_numeric_field(request.form.get("quantidade_ciptea", "")),
                         "quantidade_cipf": normalize_numeric_field(request.form.get("quantidade_cipf", "")),
-                        "quantidade_passe_livre": normalize_numeric_field(request.form.get("quantidade_passe_livre", "")),
+                        "quantidade_passe_livre": normalize_numeric_field(request.form.get("quantidade_passe_livre", ""))
                     }
                     if municipio not in instituicoes:
                         instituicoes[municipio] = []
@@ -405,18 +387,17 @@ def admin():
 # --- Rotas para arquivos de dados --- #
 @app.route('/dados.csv')
 def dados_csv():
-    # CSV consumido pelo painel público
-    return send_from_directory(os.getcwd(), CSV_FILE, mimetype='text/csv')
+    return send_from_directory(os.getcwd(), CSV_FILE)
 
 
 @app.route('/demografia.csv')
 def demografia_csv():
-    return send_from_directory(os.getcwd(), DEMO_FILE, mimetype='text/csv')
+    return send_from_directory(os.getcwd(), DEMO_FILE)
 
 
 @app.route('/sc_municipios.geojson')
 def geojson():
-    return send_from_directory(os.getcwd(), 'sc_municipios.geojson', mimetype='application/json')
+    return send_from_directory(os.getcwd(), 'sc_municipios.geojson')
 
 
 # --- Executa no Render / localmente ---
