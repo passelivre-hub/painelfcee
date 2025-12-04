@@ -285,6 +285,7 @@ function renderPainel(demografia, instituicoesResumo, municipiosResumo) {
     backgroundColor: withOpacity(tipoColors[tipo] || '#0EA5E9', barFillOpacity),
     borderColor: tipoColors[tipo] || '#0EA5E9',
     borderWidth: 2,
+    hidden: true, // 👈 começa desmarcado; usuário clica na legenda para exibir
   }));
 
   renderChart('chartFaixa', faixaLabels, datasetsFaixa, 'Por faixa etária', 'bar', {
