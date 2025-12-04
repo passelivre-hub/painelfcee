@@ -1,3 +1,7 @@
+// 🔗 BACKEND API (Render)
+// Ajusta a URL abaixo se o domínio do Render for diferente
+const API_BASE = 'https://passelivre-hub.onrender.com';
+
 const mainGreen = '#A1C84D';      // verde novo
 const cipteaBlue = '#003c6c';
 const cipfPurple = '#7d5b8c';     // roxo novo da CIPF
@@ -402,21 +406,23 @@ async function setupMap(municipiosStatus, municipiosInstituicoes) {
   }).addTo(map);
 
   async function loadGeoJson() {
-    try {
-      const response = await fetch(resolveAssetPath('sc_municipios.geojson'));
-      if (response.ok) {
-        return response.json();
-      }
-    } catch (_) {
-      // tenta fallback remoto
-    }
+    const candidates = [
+      `${API_BASE}/sc_municipios.geojson`,        // 1) backend no Render
+      resolveAssetPath('sc_municipios.geojson'),  // 2) mesmo servidor (quando rodar via Flask)
+      'https://servicodados.ibge.gov.br/api/v3/malhas/municipios/SC?formato=application/json', // 3) fallback IBGE
+    ];
 
-    const fallbackUrl = 'https://servicodados.ibge.gov.br/api/v3/malhas/municipios/SC?formato=application/json';
-    const remote = await fetch(fallbackUrl);
-    if (!remote.ok) {
-      throw new Error('Não foi possível carregar o mapa de SC');
+    for (const url of candidates) {
+      try {
+        const response = await fetch(url);
+        if (response.ok) {
+          return response.json();
+        }
+      } catch (_) {
+        // tenta o próximo
+      }
     }
-    return remote.json();
+    throw new Error('Não foi possível carregar o mapa de SC');
   }
 
   const data = await loadGeoJson();
@@ -469,8 +475,14 @@ function parseCsv(text) {
   });
 }
 
+// 🔁 Agora busca SEMPRE no backend (Render)
 async function fetchCsvData(path) {
-  const response = await fetch(resolveAssetPath(path));
+  const url = `${API_BASE}/${path}`;
+  const response = await fetch(url, {
+    headers: {
+      'Accept': 'text/csv',
+    },
+  });
   if (!response.ok) {
     throw new Error(`Não foi possível carregar ${path}`);
   }
@@ -513,7 +525,7 @@ async function init() {
       notice.style.zIndex = '1200';
       notice.innerHTML = `
         <strong>Erro ao carregar dados.</strong><br>
-        Confirme que os arquivos CSV e GeoJSON estão publicados na mesma pasta do <code>index.html</code>.
+        Confirme que os arquivos CSV e GeoJSON estão acessíveis pelo backend.
       `;
       document.body.appendChild(notice);
     }
